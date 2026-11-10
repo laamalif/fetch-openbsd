@@ -71,6 +71,7 @@
 #include <netdb.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -133,34 +134,43 @@ struct httpio {
 };
 
 /*
- * Get next chunk header
+ * Get next chunk header.  Returns -1 on a malformed header, 0 after the
+ * last chunk (trailers consumed), 1 when io->chunksize bytes of data follow.
  */
 static int
 http_new_chunk(struct httpio *io)
 {
+	size_t size = 0;
+	int digit, ndigits = 0;
 	char *p;
 
 	if (fetch_getln(io->conn) == -1)
 		return (-1);
-
 	/* an empty line is a closed connection, not the last chunk */
 	if (io->conn->linelen == 0)
 		return (-1);
-
-	for (p = io->conn->line;
-	     *p != '\0' && !isspace((unsigned char)*p) && *p != ';';
-	     p++) {
-		io->chunksize <<= 4;
+	for (p = io->conn->line; ; p++) {
 		if (*p >= '0' && *p <= '9')
-			io->chunksize += *p - '0';
+			digit = *p - '0';
 		else if (*p >= 'A' && *p <= 'F')
-			io->chunksize += 10 + *p - 'A';
+			digit = 10 + *p - 'A';
 		else if (*p >= 'a' && *p <= 'f')
-			io->chunksize += 10 + *p - 'a';
+			digit = 10 + *p - 'a';
 		else
+			break;
+		if (size > (SIZE_MAX - digit) / 16)
 			return (-1);
+		size = size * 16 + digit;
+		ndigits++;
 	}
-
+	/* the size is followed by nothing, blanks or an extension */
+	if (ndigits == 0)
+		return (-1);
+	while (*p == ' ' || *p == '\t')
+		p++;
+	if (*p != '\0' && *p != ';')
+		return (-1);
+	io->chunksize = size;
 #ifndef NDEBUG
 	if (fetchDebug) {
 		io->total += io->chunksize;
@@ -172,8 +182,18 @@ http_new_chunk(struct httpio *io)
 			    (unsigned long)io->total);
 	}
 #endif
-
-	return (io->chunksize);
+	if (size > 0)
+		return (1);
+	/* the last chunk: trailers, then an empty line, must follow */
+	for (;;) {
+		if (fetch_getln(io->conn) == -1)
+			return (-1);
+		/* nothing consumed: the connection closed */
+		if (io->conn->buf + io->conn->pos == io->conn->line)
+			return (-1);
+		if (io->conn->linelen == 0)
+			return (0);
+	}
 }
 
 /*
