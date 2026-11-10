@@ -3,6 +3,8 @@ SRCS=		main.c sandbox.c \
 		common.c fetch.c file.c ftp.c http.c
 BUILDFIRST=	ftperr.h httperr.h
 MAN=		fetch.1
+BINDIR?=	/usr/local/bin
+MANDIR?=	/usr/local/man/man
 
 .PATH:		${.CURDIR}/libfetch
 

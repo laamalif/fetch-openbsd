@@ -12,7 +12,8 @@ runs under `pledge(2)` and `unveil(2)`.  It builds and runs on OpenBSD 8.0
 ## Build
 
     make
-    doas make install            # installs fetch and fetch.1
+    doas make install            # stripped fetch to /usr/local/bin,
+                                 # fetch.1 to /usr/local/man/man1
 
 A static binary:
 
