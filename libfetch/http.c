@@ -1893,8 +1893,16 @@ http_request_body(struct url *URL, const char *op, struct url_stat *us,
 					goto ouch;
 				}
 
-				/* Only copy credentials if the host matches */
-				if (strcmp(loc->host, url->host) == 0 &&
+				/*
+				 * Only copy credentials to the same origin:
+				 * scheme, host and port.  Another port is
+				 * another service, and https to http would
+				 * send the password in the clear.
+				 */
+				if (strcmp(loc->scheme, url->scheme) == 0 &&
+				    strcasecmp(loc->host, url->host) == 0 &&
+				    (loc->port ? loc->port :
+				    fetch_default_port(loc->scheme)) == url->port &&
 				    !*loc->user && !*loc->pwd) {
 					strlcpy(loc->user, url->user, sizeof(loc->user));
 					strlcpy(loc->pwd, url->pwd, sizeof(loc->pwd));
