@@ -68,7 +68,6 @@
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
-#include <locale.h>
 #include <netdb.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -77,16 +76,8 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <xlocale.h>
 
-#ifdef WITH_SSL
-#include <openssl/md5.h>
-#define MD5Init(c) MD5_Init(c)
-#define MD5Update(c, data, len) MD5_Update(c, data, len)
-#define MD5Final(md, c) MD5_Final(md, c)
-#else
 #include <md5.h>
-#endif
 
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -121,16 +112,6 @@
 			    || (xyz) == HTTP_SEE_OTHER)
 
 #define HTTP_ERROR(xyz) ((xyz) >= 400 && (xyz) <= 599)
-
-static locale_t
-fetch_time_locale(void)
-{
-	static locale_t loc;
-
-	if (loc == NULL)
-		loc = newlocale(LC_TIME_MASK, "C", NULL);
-	return (loc);
-}
 
 /*****************************************************************************
  * I/O functions for decoding chunked streams
@@ -867,15 +848,14 @@ http_parse_mtime(const char *p, time_t *mtime)
 	struct tm tm;
 	char *r;
 
-	r = strptime_l(p, "%a, %d %b %Y %H:%M:%S GMT", &tm,
-	    fetch_time_locale());
+	memset(&tm, 0, sizeof(tm));
+	r = strptime(p, "%a, %d %b %Y %H:%M:%S GMT", &tm);
 	/*
 	 * Some proxies use UTC in response, but it should still be
 	 * parsed. RFC2616 states GMT and UTC are exactly equal for HTTP.
 	 */
 	if (r == NULL) {
-		r = strptime_l(p, "%a, %d %b %Y %H:%M:%S UTC", &tm,
-		    fetch_time_locale());
+		r = strptime(p, "%a, %d %b %Y %H:%M:%S UTC", &tm);
 	}
 	/* XXX should add support for date-2 and date-3 */
 	if (r == NULL)
@@ -1583,7 +1563,7 @@ http_request_body(struct url *URL, const char *op, struct url_stat *us,
 	const char *p;
 	FILE *f;
 	hdr_t h;
-	struct tm *timestruct;
+	struct tm timestruct;
 	http_headerbuf_t headerbuf;
 	http_auth_challenges_t server_challenges;
 	http_auth_challenges_t proxy_challenges;
@@ -1656,9 +1636,12 @@ http_request_body(struct url *URL, const char *op, struct url_stat *us,
 		}
 
 		if (ims && url->ims_time) {
-			timestruct = gmtime((time_t *)&url->ims_time);
-			(void)strftime_l(timebuf, 80, "%a, %d %b %Y %T GMT",
-			    timestruct, fetch_time_locale());
+			if (gmtime_r(&url->ims_time, &timestruct) == NULL ||
+			    strftime(timebuf, sizeof(timebuf),
+			    "%a, %d %b %Y %T GMT", &timestruct) == 0) {
+				fetch_syserr();
+				goto ouch;
+			}
 			if (verbose)
 				fetch_info("If-Modified-Since: %s", timebuf);
 			http_cmd(conn, "If-Modified-Since: %s", timebuf);
