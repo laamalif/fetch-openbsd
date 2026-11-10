@@ -183,8 +183,10 @@ Use
 instead of
 .Pa ~/.netrc
 to look up login names and passwords for FTP and HTTP sites.
-See
-.Xr netrc 5
+See the
+.Sx THE .netrc FILE
+section of
+.Xr ftp 1
 for a description of the file format.
 .It Fl n , -no-mtime
 Do not preserve the modification time of the transferred file.
@@ -442,8 +444,7 @@ $ SOCKS5_PROXY=127.0.0.1:1080 fetch -o - https://www.openbsd.org/
 .Xr ftp 1 ,
 .Xr pledge 2 ,
 .Xr unveil 2 ,
-.Xr tls_connect_socket 3 ,
-.Xr netrc 5
+.Xr tls_connect_socket 3
 .Sh HISTORY
 The
 .Nm
@@ -455,7 +456,7 @@ This implementation first appeared in
 This port to
 .Ox
 uses
-.Xr libtls 3
+.Xr tls_init 3
 instead of OpenSSL and restricts itself with
 .Xr pledge 2
 and
