@@ -1110,6 +1110,9 @@ main(int argc, char *argv[])
 		}
 	}
 
+	/* TLS is configured before any sandboxing; failure only matters for https */
+	(void)fetch_tls_init(v_level > 1);
+
 	/* check if output is to a tty (for progress report) */
 	v_tty = isatty(STDERR_FILENO);
 	v_progress = v_tty && v_level > 0;

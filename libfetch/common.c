@@ -747,20 +747,32 @@ fail:
 }
 
 /*
- * Build a TLS configuration from the environment.  libtls verifies the
- * certificate chain and the host name unless told otherwise, and only
- * enables TLS 1.2 and 1.3.
+ * The TLS configuration is built once, before the program restricts
+ * itself with pledge(2) and unveil(2), and shared by all connections.
+ * The CA bundle is read by the setter, so no file is opened later.
  */
-static struct tls_config *
-fetch_tls_config(int verbose)
+static struct tls_config	*tls_cfg;
+static char			 tls_cfg_err[256];
+
+/*
+ * Build the TLS configuration from the environment.  libtls verifies the
+ * certificate chain and the host name unless told otherwise, and only
+ * enables TLS 1.2 and 1.3.  A failure is remembered and reported when a
+ * TLS connection is attempted, so plain HTTP and FTP keep working.
+ */
+int
+fetch_tls_init(int verbose)
 {
 	struct tls_config *cfg;
-	const char *ca_file, *ca_path;
+	const char *ca_file, *ca_path, *err;
 	uint32_t protocols;
 
+	if (tls_cfg != NULL)
+		return (0);
 	if ((cfg = tls_config_new()) == NULL) {
-		fetch_info("TLS configuration failed");
-		return (NULL);
+		(void)strlcpy(tls_cfg_err, "cannot allocate TLS configuration",
+		    sizeof(tls_cfg_err));
+		return (-1);
 	}
 	protocols = TLS_PROTOCOLS_DEFAULT;
 	if (getenv("SSL_NO_TLS1_2") != NULL)
@@ -769,12 +781,16 @@ fetch_tls_config(int verbose)
 		protocols &= ~TLS_PROTOCOL_TLSv1_3;
 	if (tls_config_set_protocols(cfg, protocols) == -1)
 		goto fail;
-	if ((ca_file = getenv("SSL_CA_CERT_FILE")) != NULL) {
+	ca_file = getenv("SSL_CA_CERT_FILE");
+	ca_path = getenv("SSL_CA_CERT_PATH");
+	if (ca_file == NULL && ca_path == NULL)
+		ca_file = tls_default_ca_cert_file();
+	if (ca_file != NULL) {
 		fetch_verbose("Using CA cert file: %s", ca_file);
 		if (tls_config_set_ca_file(cfg, ca_file) == -1)
 			goto fail;
 	}
-	if ((ca_path = getenv("SSL_CA_CERT_PATH")) != NULL) {
+	if (ca_path != NULL) {
 		fetch_verbose("Using CA cert path: %s", ca_path);
 		if (tls_config_set_ca_path(cfg, ca_path) == -1)
 			goto fail;
@@ -783,11 +799,14 @@ fetch_tls_config(int verbose)
 		tls_config_insecure_noverifycert(cfg);
 	if (getenv("SSL_NO_VERIFY_HOSTNAME") != NULL)
 		tls_config_insecure_noverifyname(cfg);
-	return (cfg);
+	tls_cfg = cfg;
+	return (0);
 fail:
-	fetch_info("%s", tls_config_error(cfg));
+	if ((err = tls_config_error(cfg)) == NULL)
+		err = "TLS configuration failed";
+	(void)strlcpy(tls_cfg_err, err, sizeof(tls_cfg_err));
 	tls_config_free(cfg);
-	return (NULL);
+	return (-1);
 }
 
 /*
@@ -849,21 +868,18 @@ fetch_tls_handshake(conn_t *conn)
 int
 fetch_ssl(conn_t *conn, const struct url *URL, int verbose)
 {
-	struct tls_config *cfg;
 	const char *s;
-	int ret;
 
-	if ((cfg = fetch_tls_config(verbose)) == NULL)
-		return (-1);
-	if ((conn->tls = tls_client()) == NULL) {
-		fetch_info("TLS context creation failed");
-		tls_config_free(cfg);
+	if (tls_cfg == NULL) {
+		fetch_info("%s", tls_cfg_err[0] != '\0' ? tls_cfg_err :
+		    "TLS is not initialised");
 		return (-1);
 	}
-	/* the context keeps its own reference to the configuration */
-	ret = tls_configure(conn->tls, cfg);
-	tls_config_free(cfg);
-	if (ret == -1 ||
+	if ((conn->tls = tls_client()) == NULL) {
+		fetch_info("TLS context creation failed");
+		return (-1);
+	}
+	if (tls_configure(conn->tls, tls_cfg) == -1 ||
 	    tls_connect_socket(conn->tls, conn->sd, URL->host) == -1) {
 		fetch_info("%s", tls_error(conn->tls));
 		return (-1);

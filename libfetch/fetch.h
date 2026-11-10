@@ -137,6 +137,9 @@ __END_DECLS
 typedef int (*auth_t)(struct url *);
 extern auth_t		 fetchAuthMethod;
 
+/* Prepare TLS before pledge(2); call once after reading the environment */
+int			 fetch_tls_init(int);
+
 /* Last error code */
 extern int		 fetchLastErrCode;
 #define MAXERRSTRING 256
