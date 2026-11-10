@@ -1,6 +1,7 @@
 .\"-
 .\" Copyright (c) 2000-2014 Dag-Erling Smørgrav
 .\" Copyright (c) 2013-2016 Michael Gmelin <freebsd@grem.de>
+.\" Copyright (c) 2026 laamalif <laamalif@pm.me>
 .\" All rights reserved.
 .\" Portions Copyright (c) 1999 Massachusetts Institute of Technology; used
 .\" by permission.
@@ -28,7 +29,7 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.Dd June 27, 2026
+.Dd November 10, 2026
 .Dt FETCH 1
 .Os
 .Sh NAME
@@ -76,11 +77,17 @@
 .Sh DESCRIPTION
 The
 .Nm
-utility provides a command-line interface to the
-.Xr fetch 3
-library.
-Its purpose is to retrieve the file(s) pointed to by the URL(s) on the
+utility retrieves the file(s) pointed to by the URL(s) on the
 command line.
+The supported schemes are
+.Li http ,
+.Li https ,
+.Li ftp
+and
+.Li file .
+HTTPS connections are made with
+.Xr tls_connect_socket 3 ,
+which verifies the server certificate and host name.
 .Pp
 The following options are available:
 .Bl -tag -width Fl
@@ -119,15 +126,19 @@ on the remote host.
 This option is deprecated and is provided for backward compatibility
 only.
 .It Fl -ca-cert= Ns Ar file
-[SSL]
-Path to certificate bundle containing trusted CA certificates.
+(HTTPS only)
+Path to a file containing the trusted CA certificates in PEM format.
 Otherwise,
-OpenSSL's default CA cert and path settings apply.
+.Pa /etc/ssl/cert.pem
+is used.
 .It Fl -ca-path= Ns Ar dir
-[SSL]
+(HTTPS only)
 The directory
 .Ar dir
-contains trusted CA hashes.
+contains trusted CA certificates, each in a file named by its hash
+as printed by
+.Ic openssl x509 -hash .
+This is used instead of the default CA file.
 .It Fl d , -direct
 Use a direct connection even if a proxy is configured.
 .It Fl F , -force-restart
@@ -171,11 +182,10 @@ Use
 .Ar file
 instead of
 .Pa ~/.netrc
-to look up login names and passwords for FTP sites.
+to look up login names and passwords for FTP and HTTP sites.
 See
-.Xr ftp 1
+.Xr netrc 5
 for a description of the file format.
-This feature is experimental.
 .It Fl n , -no-mtime
 Do not preserve the modification time of the transferred file.
 .It Fl -no-passive
@@ -185,11 +195,11 @@ Either a single asterisk, which disables the use of proxies
 altogether, or a comma- or whitespace-separated list of hosts for
 which proxies should not be used.
 .It Fl -no-verify-hostname
-[SSL]
+(HTTPS only)
 Do not verify that the hostname matches the subject of the
 certificate presented by the server.
 .It Fl -no-verify-peer
-[SSL]
+(HTTPS only)
 Do not verify the peer certificate against trusted CAs.
 .It Fl o Ar file , Fl -output= Ns Ar file
 Set the output file name to
@@ -282,40 +292,98 @@ the current transfer rate statistics will be written to the
 standard error output, in the same format as the standard completion
 message.
 .Sh ENVIRONMENT
-.Bl -tag -width HTTP_TIMEOUT
+.Bl -tag -width "SSL_NO_VERIFY_HOSTNAME"
+.It Ev FETCH_BIND_ADDRESS
+Hostname or address to bind outgoing connections to, as with
+.Fl -bind-address .
+.It Ev FTP_LOGIN
+User name for FTP when none is given in the URL or in
+.Pa .netrc .
+The default is
+.Dq anonymous .
+.It Ev FTP_PASSIVE_MODE
+Set to
+.Ql NO
+to use active mode FTP.
+.It Ev FTP_PASSWORD
+Password for FTP when none is given in the URL or in
+.Pa .netrc .
+The default is the user name and host name of the local machine.
+.It Ev FTP_PROXY , ftp_proxy
+URL of the proxy to use for FTP.
+If it is not set,
+.Ev HTTP_PROXY
+is used.
 .It Ev FTP_TIMEOUT
 Maximum time, in seconds, to wait before giving up on a stalled FTP
 transfer.
+.It Ev HTTP_ACCEPT
+Value of the
+.Ql Accept
+header.
+The default is
+.Ql */* .
+.It Ev HTTP_AUTH
+Credentials for HTTP, as
+.Ar scheme : Ns Ar realm : Ns Ar user : Ns Ar password .
+.It Ev HTTP_PROXY , http_proxy
+URL of the proxy to use for HTTP, HTTPS and, if
+.Ev FTP_PROXY
+is not set, FTP.
+.It Ev HTTP_PROXY_AUTH
+Credentials for the proxy, in the same format as
+.Ev HTTP_AUTH .
+.It Ev HTTP_REFERER
+Value of the
+.Ql Referer
+header, as with
+.Fl -referer .
 .It Ev HTTP_TIMEOUT
 Maximum time, in seconds, to wait before giving up on a stalled HTTP
 transfer.
+.It Ev HTTP_USER_AGENT
+Value of the
+.Ql User-Agent
+header, as with
+.Fl -user-agent .
+.It Ev NETRC
+Name of the file to use instead of
+.Pa ~/.netrc ,
+as with
+.Fl N .
+.It Ev NO_PROXY , no_proxy
+A single asterisk, or a comma- or whitespace-separated list of hosts for
+which proxies are not used, as with
+.Fl -no-proxy .
+.It Ev SOCKS5_PROXY
+Address of a SOCKS5 proxy,
+.Ar host Ns Op : Ns Ar port ,
+through which connections are made.
+The default port is 1080.
+.It Ev SSL_CA_CERT_FILE
+As
+.Fl -ca-cert .
+.It Ev SSL_CA_CERT_PATH
+As
+.Fl -ca-path .
+.It Ev SSL_NO_TLS1_2
+Do not use TLS 1.2.
+.It Ev SSL_NO_TLS1_3
+Do not use TLS 1.3.
+.It Ev SSL_NO_VERIFY_HOSTNAME
+As
+.Fl -no-verify-hostname .
+.It Ev SSL_NO_VERIFY_PEER
+As
+.Fl -no-verify-peer .
 .El
 .Pp
-See
-.Xr fetch 3
-for a description of additional environment variables, including
-.Ev FETCH_BIND_ADDRESS ,
-.Ev FTP_LOGIN ,
-.Ev FTP_PASSIVE_MODE ,
-.Ev FTP_PASSWORD ,
-.Ev FTP_PROXY ,
-.Ev ftp_proxy ,
-.Ev HTTP_ACCEPT ,
-.Ev HTTP_AUTH ,
-.Ev HTTP_PROXY ,
-.Ev http_proxy ,
-.Ev HTTP_PROXY_AUTH ,
-.Ev HTTP_REFERER ,
-.Ev HTTP_USER_AGENT ,
-.Ev NETRC ,
-.Ev NO_PROXY ,
-.Ev no_proxy ,
-.Ev SSL_CA_CERT_FILE ,
-.Ev SSL_CA_CERT_PATH ,
-.Ev SSL_NO_TLS1_2 ,
-.Ev SSL_NO_VERIFY_HOSTNAME
-and
-.Ev SSL_NO_VERIFY_PEER .
+Only TLS 1.2 and 1.3 are ever used.
+An empty value for
+.Ev NETRC
+or
+.Ev SSL_CA_CERT_PATH
+is the same as no value.
 .Sh EXIT STATUS
 The
 .Nm
@@ -335,50 +403,47 @@ Silently try to fetch the URLs passed as parameters.
 The first one will fail.
 If the second URL succeeds the third one will not be tried:
 .Bd -literal -offset indent
-$ fetch -1 -q https://www.freebsd.org/bad.html \e
-	ftp.freebsd.org/pub/FreeBSD/README.TXT \e
-	https://www.fake.url
-fetch: https://www.freebsd.org/bad.html: Not Found
+$ fetch -1 -q https://www.openbsd.org/bad.html \e
+	https://www.openbsd.org/robots.txt \e
+	https://www.example.com/
+fetch: https://www.openbsd.org/bad.html: Not Found
 .Ed
 .Pp
 Be verbose when retrieving the
-.Pa README.TXT
+.Pa robots.txt
 file:
 .Bd -literal -offset indent
-$ fetch -v ftp.freebsd.org/pub/FreeBSD/README.TXT
-resolving server address: ftp.freebsd.org:80
-requesting http://ftp.freebsd.org/pub/FreeBSD/README.TXT
-local size / mtime: 4259 / 1431015519
-remote size / mtime: 4259 / 1431015519
-README.TXT                                            4259  B   44 MBps    00s
+$ fetch -v https://www.openbsd.org/robots.txt
 .Ed
 .Pp
-Quietly save the
-.Pa README.TXT
-file as
-.Pa myreadme.txt
+Quietly save the file as
+.Pa myrobots.txt
 and do not delete the output file under any circumstances:
 .Bd -literal -offset indent
-fetch -o myreadme.txt -q -R ftp.freebsd.org/pub/FreeBSD/README.TXT
+$ fetch -o myrobots.txt -q -R https://www.openbsd.org/robots.txt
 .Ed
 .Pp
-Print the size of the requested file and identify the request with a custom user
-agent string:
+Print the size of the requested file and identify the request with a
+custom user agent string:
 .Bd -literal -offset indent
-$ fetch -s ftp.freebsd.org/pub/FreeBSD/README.TXT
---user-agent="Mozilla/5.0 (X11; FreeBSD x86_64; rv:78.0) Gecko/20100101"
-3513231
+$ fetch -s --user-agent="Mozilla/5.0" https://www.openbsd.org/robots.txt
 .Ed
 .Pp
-Restart the transfer of the
-.Pa README.TXT
-file and retry the transfer upon soft failures:
+Restart the transfer of a file and retry the transfer upon soft failures:
 .Bd -literal -offset indent
-$ fetch -a -r http://ftp.freebsd.org/pub/FreeBSD/README.TXT
+$ fetch -a -r https://cdn.openbsd.org/pub/OpenBSD/7.8/amd64/install78.img
+.Ed
+.Pp
+Fetch through a SOCKS5 proxy:
+.Bd -literal -offset indent
+$ SOCKS5_PROXY=127.0.0.1:1080 fetch -o - https://www.openbsd.org/
 .Ed
 .Sh SEE ALSO
-.Xr fetch 3 ,
-.Xr phttpget 8
+.Xr ftp 1 ,
+.Xr pledge 2 ,
+.Xr unveil 2 ,
+.Xr tls_connect_socket 3 ,
+.Xr netrc 5
 .Sh HISTORY
 The
 .Nm
@@ -386,6 +451,15 @@ command appeared in
 .Fx 2.1.5 .
 This implementation first appeared in
 .Fx 4.1 .
+.Pp
+This port to
+.Ox
+uses
+.Xr libtls 3
+instead of OpenSSL and restricts itself with
+.Xr pledge 2
+and
+.Xr unveil 2 .
 .Sh AUTHORS
 .An -nosplit
 The original implementation of
@@ -396,13 +470,11 @@ It was extensively re-worked for
 .Fx 2.2
 by
 .An Garrett Wollman Aq Mt wollman@FreeBSD.org ,
-and later completely rewritten to use the
-.Xr fetch 3
-library by
+and later completely rewritten by
 .An Dag-Erling Sm\(/orgrav Aq Mt des@FreeBSD.org
 and
 .An Michael Gmelin Aq Mt freebsd@grem.de .
-.Sh NOTES
+.Sh CAVEATS
 The
 .Fl b
 and
@@ -417,3 +489,36 @@ One cannot both use the
 and
 .Fl f
 options and specify URLs on the command line.
+.Sh SECURITY CONSIDERATIONS
+After the command line, the environment and the CA certificates have been
+read,
+.Nm
+restricts itself with
+.Xr unveil 2
+and
+.Xr pledge 2 .
+Only the following are then reachable:
+the output file and its directory, the directory of the
+.Fl i
+file, the
+.Pa .netrc
+file, the
+.Fl -ca-path
+directory and
+.Li file
+sources named on the command line.
+With
+.Fl o Li \&-
+nothing is writable.
+A transfer that needs anything else, such as a redirect to a
+.Li file
+URL, fails instead of reading it.
+.Pp
+Server certificates and host names are verified unless
+.Fl -no-verify-peer
+or
+.Fl -no-verify-hostname
+is given.
+Credentials given in a URL or in
+.Ev HTTP_AUTH
+are visible to other users in the process list and the environment.
