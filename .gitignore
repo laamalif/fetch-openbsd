@@ -1,0 +1,7 @@
+obj/
+fetch
+*.o
+*.d
+*.core
+ftperr.h
+httperr.h
