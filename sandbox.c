@@ -15,6 +15,7 @@
  */
 
 #include <sys/param.h>
+#include <sys/stat.h>
 
 #include <err.h>
 #include <errno.h>
@@ -75,11 +76,16 @@ sandbox(char *const *urls, int nurls, const char *outpath, int outisdir,
     const char *infile)
 {
 	const char *promises, *netrc, *capath;
+	struct stat sb;
 	struct url *u;
-	int i;
+	int i, special;
 
 	/* may read the password database, so it must precede unveil */
 	netrc = fetch_netrc_path();
+
+	/* nothing can be looked at once everything is hidden */
+	special = outpath != NULL && !outisdir && stat(outpath, &sb) == 0 &&
+	    !S_ISREG(sb.st_mode) && !S_ISDIR(sb.st_mode);
 
 	/* nothing is visible unless it is unveiled below */
 	if (unveil("/", "") == -1)
@@ -101,6 +107,14 @@ sandbox(char *const *urls, int nurls, const char *outpath, int outisdir,
 	}
 	if (outpath != NULL) {
 		if (outisdir)
+			sandbox_unveil(outpath, "rwc");
+		else if (special)
+			/*
+			 * A device, FIFO or the like, such as /dev/null: it is
+			 * opened in place, never replaced through a temporary
+			 * file, so its directory must not be opened up.  The "c"
+			 * is needed because it is opened with O_CREAT.
+			 */
 			sandbox_unveil(outpath, "rwc");
 		else
 			sandbox_unveil_dirname(outpath, "rwc");
