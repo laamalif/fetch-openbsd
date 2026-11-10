@@ -120,7 +120,7 @@ sandbox(char *const *urls, int nurls, const char *outpath, int outisdir)
 
 	/*
 	 * tty: the progress meter and password prompt use terminal ioctls.
-	 * rpath: .netrc, -i and file: sources, limited by unveil.
+	 * rpath: .netrc and file: sources, limited by unveil.
 	 * wpath cpath fattr chown: the output file, its temporary file,
 	 * its times and modes, and its owner when replacing a file.
 	 */
