@@ -2136,25 +2136,6 @@ fetchXGetHTTP(struct url *URL, struct url_stat *us, const char *flags)
 }
 
 /*
- * Retrieve a file by HTTP
- */
-FILE *
-fetchGetHTTP(struct url *URL, const char *flags)
-{
-	return (fetchXGetHTTP(URL, NULL, flags));
-}
-
-/*
- * Store a file by HTTP
- */
-FILE *
-fetchPutHTTP(struct url *URL __unused, const char *flags __unused)
-{
-	warnx("fetchPutHTTP(): not implemented");
-	return (NULL);
-}
-
-/*
  * Get an HTTP document's metadata
  */
 int
@@ -2167,26 +2148,4 @@ fetchStatHTTP(struct url *URL, struct url_stat *us, const char *flags)
 		return (-1);
 	fclose(f);
 	return (0);
-}
-
-/*
- * List a directory
- */
-struct url_ent *
-fetchListHTTP(struct url *url __unused, const char *flags __unused)
-{
-	warnx("fetchListHTTP(): not implemented");
-	return (NULL);
-}
-
-/*
- * Arbitrary HTTP verb and content requests
- */
-FILE *
-fetchReqHTTP(struct url *URL, const char *method, const char *flags,
-	const char *content_type, const char *body)
-{
-
-	return (http_request_body(URL, method, NULL, http_get_proxy(URL, flags),
-	    flags, content_type, body));
 }

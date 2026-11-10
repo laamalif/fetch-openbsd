@@ -1176,25 +1176,6 @@ fetchXGetFTP(struct url *url, struct url_stat *us, const char *flags)
 }
 
 /*
- * Get file
- */
-FILE *
-fetchGetFTP(struct url *url, const char *flags)
-{
-	return (fetchXGetFTP(url, NULL, flags));
-}
-
-/*
- * Put file
- */
-FILE *
-fetchPutFTP(struct url *url, const char *flags)
-{
-	return (ftp_request(url, CHECK_FLAG('a') ? "APPE" : "STOR", NULL,
-	    ftp_get_proxy(url, flags), flags));
-}
-
-/*
  * Get file stats
  */
 int
@@ -1211,14 +1192,4 @@ fetchStatFTP(struct url *url, struct url_stat *us, const char *flags)
 	 * returning, as it would cause a segfault.
 	 */
 	return (0);
-}
-
-/*
- * List a directory
- */
-struct url_ent *
-fetchListFTP(struct url *url __unused, const char *flags __unused)
-{
-	warnx("fetchListFTP(): not implemented");
-	return (NULL);
 }

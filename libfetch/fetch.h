@@ -56,11 +56,6 @@ struct url_stat {
 	time_t		 mtime;
 };
 
-struct url_ent {
-	char		 name[PATH_MAX];
-	struct url_stat	 stat;
-};
-
 /* Recognized schemes */
 #define SCHEME_FTP	"ftp"
 #define SCHEME_HTTP	"http"
@@ -92,38 +87,19 @@ __BEGIN_DECLS
 
 /* FILE-specific functions */
 FILE		*fetchXGetFile(struct url *, struct url_stat *, const char *);
-FILE		*fetchGetFile(struct url *, const char *);
-FILE		*fetchPutFile(struct url *, const char *);
 int		 fetchStatFile(struct url *, struct url_stat *, const char *);
-struct url_ent	*fetchListFile(struct url *, const char *);
 
 /* HTTP-specific functions */
 FILE		*fetchXGetHTTP(struct url *, struct url_stat *, const char *);
-FILE		*fetchGetHTTP(struct url *, const char *);
-FILE		*fetchPutHTTP(struct url *, const char *);
 int		 fetchStatHTTP(struct url *, struct url_stat *, const char *);
-struct url_ent	*fetchListHTTP(struct url *, const char *);
-FILE		*fetchReqHTTP(struct url *, const char *, const char *,
-		    const char *, const char *);
 
 /* FTP-specific functions */
 FILE		*fetchXGetFTP(struct url *, struct url_stat *, const char *);
-FILE		*fetchGetFTP(struct url *, const char *);
-FILE		*fetchPutFTP(struct url *, const char *);
 int		 fetchStatFTP(struct url *, struct url_stat *, const char *);
-struct url_ent	*fetchListFTP(struct url *, const char *);
 
 /* Generic functions */
-FILE		*fetchXGetURL(const char *, struct url_stat *, const char *);
-FILE		*fetchGetURL(const char *, const char *);
-FILE		*fetchPutURL(const char *, const char *);
-int		 fetchStatURL(const char *, struct url_stat *, const char *);
-struct url_ent	*fetchListURL(const char *, const char *);
 FILE		*fetchXGet(struct url *, struct url_stat *, const char *);
-FILE		*fetchGet(struct url *, const char *);
-FILE		*fetchPut(struct url *, const char *);
 int		 fetchStat(struct url *, struct url_stat *, const char *);
-struct url_ent	*fetchList(struct url *, const char *);
 
 /* URL parsing */
 struct url	*fetchMakeURL(const char *, const char *, int,

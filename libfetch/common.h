@@ -136,8 +136,6 @@ ssize_t		 fetch_write(conn_t *, const void *, size_t);
 ssize_t		 fetch_writev(conn_t *, struct iovec *, int);
 int		 fetch_putln(conn_t *, const char *, size_t);
 int		 fetch_close(conn_t *);
-int		 fetch_add_entry(struct url_ent **, int *, int *,
-		     const char *, struct url_stat *);
 int		 fetch_netrc_auth(struct url *url);
 int		 fetch_no_proxy_match(const char *);
 

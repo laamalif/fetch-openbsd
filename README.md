@@ -82,7 +82,12 @@ accounting (see its header) and runs the SOCKS5 cases only if
 
 `UPSTREAM` records the freebsd-src commit this was taken from.  To sync, diff
 `lib/libfetch` and `usr.bin/fetch` between that commit and the new one, apply
-the diff here, and update `UPSTREAM`.  `docs/plans/` has the design notes
+the diff here, and update `UPSTREAM`.  `UPSTREAM` also lists the library
+functions that were removed because nothing here calls them (upload, list and
+the URL convenience wrappers): skip upstream hunks that touch those, and
+check any new caller of one before bringing it back.  `libfetch/common.c`
+differs most from upstream (libtls, deadlines, SOCKS5, redaction), so expect
+to merge it by hand.  `docs/plans/` has the design notes
 written when the port was made.  They describe the port as it started and
 are not kept up to date.
 

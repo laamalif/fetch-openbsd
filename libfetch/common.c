@@ -1594,41 +1594,6 @@ fetch_close(conn_t *conn)
 }
 
 
-/*** Directory-related utility functions *************************************/
-
-int
-fetch_add_entry(struct url_ent **p, int *size, int *len,
-    const char *name, struct url_stat *us)
-{
-	struct url_ent *tmp;
-
-	if (*p == NULL) {
-		*size = 0;
-		*len = 0;
-	}
-
-	if (*len >= *size - 1) {
-		tmp = reallocarray(*p, *size * 2 + 1, sizeof(**p));
-		if (tmp == NULL) {
-			errno = ENOMEM;
-			fetch_syserr();
-			return (-1);
-		}
-		*size = (*size * 2 + 1);
-		*p = tmp;
-	}
-
-	tmp = *p + *len;
-	snprintf(tmp->name, PATH_MAX, "%s", name);
-	memcpy(&tmp->stat, us, sizeof(*us));
-
-	(*len)++;
-	(++tmp)->name[0] = 0;
-
-	return (0);
-}
-
-
 /*** Authentication-related utility functions ********************************/
 
 static const char *

@@ -12,3 +12,21 @@ Path mapping (local <- upstream):
   libfetch/*       <- lib/libfetch/*
 
 Not imported: lib/libfetch/{fetch.3,Makefile*}, usr.bin/fetch/Makefile*
+
+Intentional removals from lib/libfetch (whole functions that nothing in
+main.c or sandbox.c can reach, with their declarations; checked by linking
+with --gc-sections).  When syncing, drop upstream hunks that touch them:
+  fetch.c   fetchGet, fetchPut, fetchList,
+            fetchGetURL, fetchXGetURL, fetchPutURL, fetchStatURL,
+            fetchListURL
+  file.c    fetchGetFile, fetchPutFile, fetchListFile
+  ftp.c     fetchGetFTP, fetchPutFTP, fetchListFTP
+  http.c    fetchGetHTTP, fetchPutHTTP, fetchListHTTP, fetchReqHTTP
+  common.c  fetch_add_entry, and its "Directory-related utility functions"
+            heading
+  fetch.h   the declarations of the above, and struct url_ent
+  common.h  the declaration of fetch_add_entry
+Kept on purpose: everything inside the functions that remain, such as the
+FTP STOR/APPE path, the request body arguments of http_request_body(), and
+the #ifdef and #if 0 blocks.  Cutting those would make every sync a manual
+port; main.c, sandbox.c and the files the port added carry the local work.
