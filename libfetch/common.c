@@ -284,7 +284,6 @@ fetch_reopen(int sd)
 {
 	conn_t *conn;
 	int flags;
-	int opt = 1;
 
 	/* allocate and fill connection structure */
 	if ((conn = calloc(1, sizeof(*conn))) == NULL)
@@ -295,7 +294,6 @@ fetch_reopen(int sd)
 	flags = fcntl(sd, F_GETFL);
 	if (flags != -1 && (flags & O_NONBLOCK) == 0)
 		(void)fcntl(sd, F_SETFL, flags | O_NONBLOCK);
-	(void)setsockopt(sd, SOL_SOCKET, SO_NOSIGPIPE, &opt, sizeof(opt));
 	conn->sd = sd;
 	++conn->ref;
 	return (conn);
@@ -324,7 +322,7 @@ fetch_resolve(const char *addr, int port, int af)
 		he = sep++;
 	} else {
 		hb = addr;
-		sep = strchrnul(hb, ':');
+		sep = hb + strcspn(hb, ":");
 		he = sep;
 	}
 
@@ -851,7 +849,7 @@ fetch_ssl_hname_match(const char *h, size_t hlen, const char *m,
 
 	if (!(h && *h && m && *m))
 		return (0);
-	if ((wc = strnstr(m, "*", mlen)) == NULL)
+	if ((wc = memchr(m, '*', mlen)) == NULL)
 		return (fetch_ssl_hname_equal(h, hlen, m, mlen));
 	wcidx = wc - m;
 	/* hostname should not be just dots and numbers */

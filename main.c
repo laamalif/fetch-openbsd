@@ -30,6 +30,7 @@
  */
 
 #include <sys/param.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -900,6 +901,8 @@ main(int argc, char *argv[])
 	char *end, *q;
 	int c, e, is_http, r;
 
+	/* Replaces SO_NOSIGPIPE: a closed peer must give EPIPE, not a signal. */
+	signal(SIGPIPE, SIG_IGN);
 
 	while ((c = getopt_long(argc, argv,
 	    "146AaB:bc:dFf:Hh:i:lMmN:nPpo:qRrS:sT:tUvw:",
