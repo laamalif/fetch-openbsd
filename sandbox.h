@@ -17,6 +17,6 @@
 #ifndef _SANDBOX_H_
 #define _SANDBOX_H_
 
-void	sandbox(char *const *, int, const char *, int, const char *);
+void	sandbox(char *const *, int, const char *, int);
 
 #endif /* _SANDBOX_H_ */

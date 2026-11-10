@@ -65,15 +65,13 @@ sandbox_unveil_dirname(const char *path, const char *perms)
  * urls, nurls	the URLs to fetch; file: sources are unveiled read-only
  * outpath	where output goes, or NULL for standard output
  * outisdir	outpath is a directory, otherwise a file in its directory
- * infile	the -i reference file, or NULL
  *
- * Directories are unveiled rather than files wherever the program may
- * replace a file, since a more specific unveil would override the
- * directory: with -i the reference file is often the output file too.
+ * The output directory is unveiled rather than the output file, since the
+ * file is written under a temporary name and renamed into place.  The -i
+ * reference file is not unveiled: its time is read before this is called.
  */
 void
-sandbox(char *const *urls, int nurls, const char *outpath, int outisdir,
-    const char *infile)
+sandbox(char *const *urls, int nurls, const char *outpath, int outisdir)
 {
 	const char *promises, *netrc, *capath;
 	struct stat sb;
@@ -95,8 +93,6 @@ sandbox(char *const *urls, int nurls, const char *outpath, int outisdir,
 		sandbox_unveil(netrc, "r");
 	if ((capath = getenv("SSL_CA_CERT_PATH")) != NULL)
 		sandbox_unveil(capath, "r");
-	if (infile != NULL)
-		sandbox_unveil_dirname(infile, "r");
 	for (i = 0; i < nurls; i++) {
 		if ((u = fetchParseURL(urls[i])) == NULL)
 			continue;

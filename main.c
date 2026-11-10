@@ -38,6 +38,7 @@
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <signal.h>
 #include <stdint.h>
@@ -66,6 +67,9 @@ static char	*f_filename;	/*    -f: file to fetch */
 static char	*h_hostname;	/*    -h: host to fetch from */
 static int	 i_flag;	/*    -i: specify file for mtime comparison */
 static char	*i_filename;	/*        name of input file */
+static time_t	 i_mtime;	/*        its mtime, read before sandboxing */
+static int	 i_errno;	/*        or why that failed */
+static mode_t	 cmask;		/* the umask, for new output files */
 static int	 l_flag;	/*    -l: link rather than copy file: URLs */
 static int	 m_flag;	/* -[Mm]: mirror mode */
 static char	*N_filename;	/*    -N: netrc file name */
@@ -423,13 +427,19 @@ fetch(char *URL, const char *path, int *is_http)
 	char flags[8];
 	const char *slash;
 	char *tmppath;
-	int fd, ofclosed, r, tries, werr;
+	mode_t omode;
+	uid_t ouid;
+	gid_t ogid;
+	int exists, fd, tmplive, r, tries, werr;
 	unsigned timeout;
 	int timedout = 0;
 	char *ptr;
 
 	f = of = NULL;
-	ofclosed = 0;
+	tmplive = 0;
+	omode = 0;
+	ouid = (uid_t)-1;
+	ogid = (gid_t)-1;
 	tmppath = NULL;
 
 	timeout = 0;
@@ -499,11 +509,11 @@ fetch(char *URL, const char *path, int *is_http)
 			strlcat(flags, "A", sizeof(flags));
 		timeout = T_secs ? T_secs : http_timeout;
 		if (i_flag) {
-			if (stat(i_filename, &sb)) {
-				warn("%s: stat()", i_filename);
+			if (i_errno != 0) {
+				warnc(i_errno, "%s: stat()", i_filename);
 				goto failure;
 			}
-			url->ims_time = sb.st_mtime;
+			url->ims_time = i_mtime;
 			strlcat(flags, "i", sizeof(flags));
 		}
 	}
@@ -542,8 +552,10 @@ again:
 	 * the connection later if we change our minds.
 	 */
 	sb.st_size = -1;
+	exists = 0;
 	if (!o_stdout) {
 		r = stat(path, &sb);
+		exists = r == 0;
 		if (r == 0 && (r_flag || tries > 1) && S_ISREG(sb.st_mode)) {
 			url->offset = sb.st_size;
 		} else if (r == -1 || !S_ISREG(sb.st_mode)) {
@@ -701,34 +713,58 @@ again:
 				goto signal;
 		}
 
-		/* construct a temp file name */
-		if (sb.st_size != -1 && S_ISREG(sb.st_mode)) {
+		/*
+		 * A regular file, new or replaced, is written under a private
+		 * temporary name in its own directory and renamed into place
+		 * once complete, so the destination name is never opened and
+		 * a symlink put there is replaced, not followed.  Exceptions:
+		 * a device or FIFO is opened in place, and with -r or -R a new
+		 * partial file must keep its name for the next run.
+		 */
+		if (exists && !S_ISREG(sb.st_mode)) {
+			of = fopen(path, "w");
+		} else if ((r_flag || R_flag) && !exists) {
+			if ((fd = open(path, O_WRONLY | O_CREAT | O_EXCL,
+			    DEFFILEMODE)) == -1) {
+				warn("%s: open()", path);
+				goto failure;
+			}
+			if ((of = fdopen(fd, "w")) == NULL) {
+				warn("%s: fdopen()", path);
+				close(fd);
+				goto failure;
+			}
+		} else {
 			if ((slash = strrchr(path, '/')) == NULL)
 				slash = path;
 			else
 				++slash;
-			if(tmppath != NULL)
-				free(tmppath);
-			asprintf(&tmppath, "%.*s.fetch.XXXXXX.%s",
-			    (int)(slash - path), path, slash);
-			if (tmppath != NULL) {
-				if ((fd = mkstemps(tmppath, strlen(slash) + 1)) == -1) {
-					warn("%s: mkstemps()", path);
-					goto failure;
-				}
-				/* work on the descriptor, not on the name */
-				(void)fchown(fd, sb.st_uid, sb.st_gid);
-				(void)fchmod(fd, sb.st_mode & ALLPERMS);
-				if ((of = fdopen(fd, "w")) == NULL) {
-					warn("%s: fdopen()", tmppath);
-					close(fd);
-					unlink(tmppath);
-					goto failure;
-				}
+			free(tmppath);
+			tmppath = NULL;
+			if (asprintf(&tmppath, "%.*s.fetch.XXXXXX.%s",
+			    (int)(slash - path), path, slash) == -1) {
+				tmppath = NULL;
+				warn("asprintf");
+				goto failure;
+			}
+			if ((fd = mkstemps(tmppath, strlen(slash) + 1)) == -1) {
+				warn("%s: mkstemps()", path);
+				goto failure;
+			}
+			/* private until complete; see "success" below */
+			tmplive = 1;
+			if (exists) {
+				omode = sb.st_mode & ACCESSPERMS;
+				ouid = sb.st_uid;
+				ogid = sb.st_gid;
+			} else
+				omode = DEFFILEMODE & ~cmask;
+			if ((of = fdopen(fd, "w")) == NULL) {
+				warn("%s: fdopen()", tmppath);
+				close(fd);
+				goto failure;
 			}
 		}
-		if (of == NULL)
-			of = fopen(path, "w");
 		if (of == NULL) {
 			warn("%s: open()", path);
 			goto failure;
@@ -789,15 +825,15 @@ again:
  signal:
 	/* set mtime of local file */
 	if (!n_flag && us.mtime && !o_stdout && of != NULL &&
-	    (stat(path, &sb) != -1) && sb.st_mode & S_IFREG) {
+	    fstat(fileno(of), &nsb) != -1 && S_ISREG(nsb.st_mode)) {
 		struct timeval tv[2];
 
 		fflush(of);
 		tv[0].tv_sec = (long)(us.atime ? us.atime : us.mtime);
 		tv[1].tv_sec = (long)us.mtime;
 		tv[0].tv_usec = tv[1].tv_usec = 0;
-		if (utimes(tmppath ? tmppath : path, tv))
-			warn("%s: utimes()", tmppath ? tmppath : path);
+		if (futimes(fileno(of), tv))
+			warn("%s: futimes()", tmppath ? tmppath : path);
 	}
 
 	/* timed out or interrupted? */
@@ -861,38 +897,57 @@ again:
 		}
 	} else if (of != NULL) {
 		werr = fflush(of) == EOF || ferror(of);
-		if (fclose(of) == EOF)
+		/*
+		 * The replacement was private to us while it downloaded.
+		 * Now give it the ordinary permission bits and the owner of
+		 * what it replaces, never setuid, setgid or sticky.  If the
+		 * owner cannot be kept the replacement is refused, since a
+		 * different owner or group would change who may use the file.
+		 */
+		if (!werr && tmplive) {
+			if (ouid != (uid_t)-1 && fstat(fileno(of), &nsb) == 0 &&
+			    (nsb.st_uid != ouid || nsb.st_gid != ogid) &&
+			    fchown(fileno(of), ouid, ogid) == -1) {
+				warn("%s: cannot keep the owner of %s",
+				    tmppath, path);
+				werr = -1;
+			} else if (fchmod(fileno(of), omode) == -1) {
+				warn("%s: fchmod()", tmppath);
+				werr = -1;
+			}
+		}
+		if (fclose(of) == EOF && !werr)
 			werr = 1;
 		of = NULL;
-		ofclosed = 1;
 		if (werr) {
-			warn("%s", tmppath != NULL ? tmppath : path);
+			if (werr > 0)
+				warn("%s", tmppath != NULL ? tmppath : path);
 			goto failure;
 		}
 	}
-	if (tmppath != NULL && rename(tmppath, path) == -1) {
-		warn("%s: rename()", path);
-		goto failure_keep;
+	if (tmplive) {
+		if (rename(tmppath, path) == -1) {
+			warn("%s: rename()", path);
+			goto failure_keep;
+		}
+		tmplive = 0;
 	}
 	goto done;
  failure:
-	if ((of != NULL || ofclosed) && of != stdout && !R_flag && !r_flag)
-		if (stat(path, &sb) != -1 && (sb.st_mode & S_IFREG))
-			unlink(tmppath ? tmppath : path);
-	if (R_flag && tmppath != NULL && sb.st_size == -1)
-		rename(tmppath, path); /* ignore errors here */
+	/* an output file named by the user stays: it may be resumed */
  failure_keep:
 	r = -1;
-	goto done;
  done:
 	if (f)
 		fclose(f);
 	if (of && of != stdout)
 		fclose(of);
+	/* the temporary file is never what the user wants to keep */
+	if (tmplive)
+		unlink(tmppath);
 	if (url)
 		fetchFreeURL(url);
-	if (tmppath != NULL)
-		free(tmppath);
+	free(tmppath);
 	return (r);
 }
 
@@ -927,6 +982,8 @@ main(int argc, char *argv[])
 
 	/* Replaces SO_NOSIGPIPE: a closed peer must give EPIPE, not a signal. */
 	signal(SIGPIPE, SIG_IGN);
+	cmask = umask(0);
+	umask(cmask);
 
 	while ((c = getopt_long(argc, argv,
 	    "146AaB:bc:dFf:Hh:i:lMmN:nPpo:qRrS:sT:tUvw:",
@@ -1168,8 +1225,15 @@ main(int argc, char *argv[])
 	 * With no -o a transfer is written under its own name in the
 	 * current directory.
 	 */
+	if (i_flag) {
+		/* the reference is looked at once, here: it is not unveiled */
+		if (stat(i_filename, &sb) == -1)
+			i_errno = errno;
+		else
+			i_mtime = sb.st_mtime;
+	}
 	sandbox(argv, argc, o_stdout ? NULL : o_flag ? o_filename : ".",
-	    o_stdout || !o_flag ? 1 : o_directory, i_filename);
+	    o_stdout || !o_flag ? 1 : o_directory);
 
 	while (argc) {
 		if ((p = strrchr(*argv, '/')) == NULL)
