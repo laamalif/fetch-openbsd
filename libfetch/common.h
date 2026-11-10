@@ -38,13 +38,7 @@
 #define FTP_DEFAULT_PROXY_PORT	21
 #define HTTP_DEFAULT_PROXY_PORT	3128
 
-#ifdef WITH_SSL
-#include <openssl/crypto.h>
-#include <openssl/x509.h>
-#include <openssl/pem.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#endif
+#include <tls.h>
 
 /* Connection */
 typedef struct fetchconn conn_t;
@@ -57,11 +51,7 @@ struct fetchconn {
 	size_t		 linelen;	/* length of line */
 	size_t		 pos;		/* current position in buffer */
 	int		 err;		/* last protocol reply code */
-#ifdef WITH_SSL
-	SSL		*ssl;		/* SSL handle */
-	SSL_CTX		*ssl_ctx;	/* SSL context */
-	X509		*ssl_cert;	/* server certificate */
-#endif
+	struct tls	*tls;		/* TLS context, NULL if plain */
 	int		 ref;		/* reference count */
 };
 
@@ -131,9 +121,6 @@ struct addrinfo *fetch_resolve(const char *, int, int);
 int		 fetch_bind(int, int, const char *);
 conn_t		*fetch_connect(const char *, int, int, int);
 conn_t		*fetch_reopen(int);
-#ifdef WITH_SSL
-int		 fetch_ssl_cb_verify_crt(int, X509_STORE_CTX*);
-#endif
 int		 fetch_ssl(conn_t *, const struct url *, int);
 ssize_t		 fetch_read(conn_t *, void *, size_t);
 ssize_t		 fetch_getln(conn_t *);
