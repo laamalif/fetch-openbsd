@@ -1367,31 +1367,50 @@ fetch_read_word(FILE *f)
 	return (word);
 }
 
-static int
-fetch_netrc_open(void)
+/*
+ * Locate the netrc file.  The answer is cached: the fallback to the
+ * password database is not possible once the program has been pledged.
+ */
+const char *
+fetch_netrc_path(void)
 {
+	static char fn[PATH_MAX];
+	static const char *path;
+	static int done;
 	struct passwd *pwd;
-	char fn[PATH_MAX];
 	const char *p;
-	int fd, serrno;
 
+	if (done)
+		return (path);
+	done = 1;
 	if ((p = getenv("NETRC")) != NULL) {
 		DEBUGF("NETRC=%s\n", p);
 		if (snprintf(fn, sizeof(fn), "%s", p) >= (int)sizeof(fn)) {
 			fetch_info("$NETRC specifies a file name "
 			    "longer than PATH_MAX");
-			return (-1);
+			return (NULL);
 		}
 	} else {
 		if ((p = getenv("HOME")) == NULL) {
 			if ((pwd = getpwuid(getuid())) == NULL ||
 			    (p = pwd->pw_dir) == NULL)
-				return (-1);
+				return (NULL);
 		}
 		if (snprintf(fn, sizeof(fn), "%s/.netrc", p) >= (int)sizeof(fn))
-			return (-1);
+			return (NULL);
 	}
+	path = fn;
+	return (path);
+}
 
+static int
+fetch_netrc_open(void)
+{
+	const char *fn;
+	int fd, serrno;
+
+	if ((fn = fetch_netrc_path()) == NULL)
+		return (-1);
 	if ((fd = open(fn, O_RDONLY)) < 0) {
 		serrno = errno;
 		DEBUGF("%s: %s\n", fn, strerror(serrno));

@@ -49,6 +49,8 @@
 
 #include <fetch.h>
 
+#include "sandbox.h"
+
 #define MINBUFSIZE	16384
 #define TIMEOUT		120
 
@@ -1127,6 +1129,13 @@ main(int argc, char *argv[])
 	if (N_filename != NULL)
 		if (setenv("NETRC", N_filename, 1) == -1)
 			err(1, "setenv: cannot set NETRC=%s", N_filename);
+
+	/*
+	 * With no -o a transfer is written under its own name in the
+	 * current directory.
+	 */
+	sandbox(argv, argc, o_stdout ? NULL : o_flag ? o_filename : ".",
+	    o_stdout || !o_flag ? 1 : o_directory, i_filename);
 
 	while (argc) {
 		if ((p = strrchr(*argv, '/')) == NULL)

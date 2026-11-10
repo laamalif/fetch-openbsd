@@ -140,6 +140,9 @@ extern auth_t		 fetchAuthMethod;
 /* Prepare TLS before pledge(2); call once after reading the environment */
 int			 fetch_tls_init(int);
 
+/* Path of the netrc file, or NULL; resolved before pledge(2) */
+const char		*fetch_netrc_path(void);
+
 /* Last error code */
 extern int		 fetchLastErrCode;
 #define MAXERRSTRING 256
