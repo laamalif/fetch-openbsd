@@ -3,3 +3,12 @@ branch: stable/15
 commit: 6df22096ddb27edb169cfb6758d1dab130f9f683
 date:   2026-11-09T20:32:52-08:00
 paths:  lib/libfetch usr.bin/fetch
+
+Path mapping (local <- upstream):
+  main.c           <- usr.bin/fetch/fetch.c   (renamed: libfetch/fetch.c would
+                                               also build to fetch.o; OpenBSD
+                                               ftp(1) uses the same main.c split)
+  fetch.1          <- usr.bin/fetch/fetch.1
+  libfetch/*       <- lib/libfetch/*
+
+Not imported: lib/libfetch/{fetch.3,Makefile*}, usr.bin/fetch/Makefile*
