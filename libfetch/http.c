@@ -1238,9 +1238,10 @@ http_digest_auth(conn_t *conn, const char *hdr, http_auth_challenge_t *c,
 		*cnonce = 0;
 	} else {
 		c->nc++;
-		sprintf(noncecount, "%08x", c->nc);
+		snprintf(noncecount, sizeof(noncecount), "%08x", c->nc);
 		/* We don't try very hard with the cnonce ... */
-		sprintf(cnonce, "%x%lx", getpid(), (unsigned long)time(0));
+		snprintf(cnonce, sizeof(cnonce), "%x%lx", getpid(),
+		    (unsigned long)time(0));
 	}
 
 	HASHHEX HA1;
@@ -1477,7 +1478,7 @@ http_get_proxy(struct url * url, const char *flags)
 	if (((p = getenv("HTTP_PROXY")) || (p = getenv("http_proxy"))) &&
 	    *p && (purl = fetchParseURL(p))) {
 		if (!*purl->scheme)
-			strcpy(purl->scheme, SCHEME_HTTP);
+			strlcpy(purl->scheme, SCHEME_HTTP, sizeof(purl->scheme));
 		if (!purl->port)
 			purl->port = fetch_default_proxy_port(purl->scheme);
 		if (strcmp(purl->scheme, SCHEME_HTTP) == 0)
@@ -1884,8 +1885,8 @@ http_request_body(struct url *URL, const char *op, struct url_stat *us,
 				/* Only copy credentials if the host matches */
 				if (strcmp(loc->host, url->host) == 0 &&
 				    !*loc->user && !*loc->pwd) {
-					strcpy(loc->user, url->user);
-					strcpy(loc->pwd, url->pwd);
+					strlcpy(loc->user, url->user, sizeof(loc->user));
+					strlcpy(loc->pwd, url->pwd, sizeof(loc->pwd));
 				}
 				loc->offset = url->offset;
 				loc->length = url->length;

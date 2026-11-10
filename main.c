@@ -437,7 +437,7 @@ fetch(char *URL, const char *path, int *is_http)
 
 	/* set verbosity level */
 	if (v_level > 1)
-		strcat(flags, "v");
+		strlcat(flags, "v", sizeof(flags));
 	if (v_level > 2)
 		fetchDebug = 1;
 
@@ -455,11 +455,14 @@ fetch(char *URL, const char *path, int *is_http)
 	/* if no scheme was specified, take a guess */
 	if (!*url->scheme) {
 		if (!*url->host)
-			strcpy(url->scheme, SCHEME_FILE);
+			strlcpy(url->scheme, SCHEME_FILE,
+			    sizeof(url->scheme));
 		else if (strncasecmp(url->host, "ftp.", 4) == 0)
-			strcpy(url->scheme, SCHEME_FTP);
+			strlcpy(url->scheme, SCHEME_FTP,
+			    sizeof(url->scheme));
 		else if (strncasecmp(url->host, "www.", 4) == 0)
-			strcpy(url->scheme, SCHEME_HTTP);
+			strlcpy(url->scheme, SCHEME_HTTP,
+			    sizeof(url->scheme));
 	}
 
 	/* for both of http and https */
@@ -468,21 +471,21 @@ fetch(char *URL, const char *path, int *is_http)
 	/* common flags */
 	switch (family) {
 	case PF_INET:
-		strcat(flags, "4");
+		strlcat(flags, "4", sizeof(flags));
 		break;
 	case PF_INET6:
-		strcat(flags, "6");
+		strlcat(flags, "6", sizeof(flags));
 		break;
 	}
 
 	/* FTP specific flags */
 	if (strcmp(url->scheme, SCHEME_FTP) == 0) {
 		if (p_flag)
-			strcat(flags, "p");
+			strlcat(flags, "p", sizeof(flags));
 		if (d_flag)
-			strcat(flags, "d");
+			strlcat(flags, "d", sizeof(flags));
 		if (U_flag)
-			strcat(flags, "l");
+			strlcat(flags, "l", sizeof(flags));
 		timeout = T_secs ? T_secs : ftp_timeout;
 	}
 
@@ -490,9 +493,9 @@ fetch(char *URL, const char *path, int *is_http)
 	if (strcmp(url->scheme, SCHEME_HTTP) == 0 ||
 	    strcmp(url->scheme, SCHEME_HTTPS) == 0) {
 		if (d_flag)
-			strcat(flags, "d");
+			strlcat(flags, "d", sizeof(flags));
 		if (A_flag)
-			strcat(flags, "A");
+			strlcat(flags, "A", sizeof(flags));
 		timeout = T_secs ? T_secs : http_timeout;
 		if (i_flag) {
 			if (stat(i_filename, &sb)) {
@@ -500,7 +503,7 @@ fetch(char *URL, const char *path, int *is_http)
 				goto failure;
 			}
 			url->ims_time = sb.st_mtime;
-			strcat(flags, "i");
+			strlcat(flags, "i", sizeof(flags));
 		}
 	}
 

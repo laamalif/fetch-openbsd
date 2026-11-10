@@ -1078,9 +1078,9 @@ ftp_get_proxy(struct url * url, const char *flags)
 	    *p && (purl = fetchParseURL(p)) != NULL) {
 		if (!*purl->scheme) {
 			if (getenv("FTP_PROXY") || getenv("ftp_proxy"))
-				strcpy(purl->scheme, SCHEME_FTP);
+				strlcpy(purl->scheme, SCHEME_FTP, sizeof(purl->scheme));
 			else
-				strcpy(purl->scheme, SCHEME_HTTP);
+				strlcpy(purl->scheme, SCHEME_HTTP, sizeof(purl->scheme));
 		}
 		if (!purl->port)
 			purl->port = fetch_default_proxy_port(purl->scheme);
