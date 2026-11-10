@@ -929,7 +929,7 @@ ftp_authenticate(conn_t *conn, struct url *url, struct url *purl)
 		pwd = url->pwd;
 		if (*pwd == '\0')
 			if ((pwd = getenv("FTP_PASSWORD")) != NULL)
-				DEBUGF("FTP_PASSWORD=%s\n", pwd);
+				DEBUGF("using FTP_PASSWORD\n");
 		if (pwd == NULL || *pwd == '\0') {
 			if ((logname = getlogin()) == NULL)
 				logname = FTP_ANONYMOUS_USER;

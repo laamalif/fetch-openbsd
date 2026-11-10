@@ -1278,7 +1278,6 @@ http_digest_auth(conn_t *conn, const char *hdr, http_auth_challenge_t *c,
 	HASHHEX HA1;
 	DigestCalcHA1(c->algo, parms->user, c->realm,
 		      parms->password, c->nonce, cnonce, HA1);
-	DEBUGF("HA1: [%s]\n", HA1);
 	HASHHEX digest, null;
 	memset(null, 0, sizeof(null));
 	DigestCalcResponse(HA1, c->nonce, noncecount, cnonce, c->qop,
@@ -1312,7 +1311,6 @@ http_basic_auth(conn_t *conn, const char *hdr, const char *usr, const char *pwd)
 	int r;
 
 	DEBUGF("basic: usr: [%s]\n", usr);
-	DEBUGF("basic: pwd: [%s]\n", pwd);
 	if (asprintf(&upw, "%s:%s", usr, pwd) == -1)
 		return (-1);
 	auth = http_base64(upw);

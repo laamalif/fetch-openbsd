@@ -578,10 +578,17 @@ again:
 	 */
 	sb.st_size = -1;
 	exists = 0;
-	if (!o_stdout) {
+	if (of != NULL && of != stdout) {
+		/*
+		 * A retry (-a): the output is open and holds the first
+		 * count bytes, whatever the path now refers to.  Ask for the
+		 * rest; the server may start again at zero instead.
+		 */
+		url->offset = count;
+	} else if (!o_stdout) {
 		r = stat(path, &sb);
 		exists = r == 0;
-		if (r == 0 && (r_flag || tries > 1) && S_ISREG(sb.st_mode)) {
+		if (r == 0 && r_flag && S_ISREG(sb.st_mode)) {
 			url->offset = sb.st_size;
 		} else if (r == -1 || !S_ISREG(sb.st_mode)) {
 			/*
@@ -596,7 +603,7 @@ again:
 			goto failure;
 		}
 	}
-	size_prev = sb.st_size;
+	size_prev = of != NULL && of != stdout ? count : sb.st_size;
 
 	/* start the transfer */
 	f = fetchXGet(url, &us, flags);
@@ -651,6 +658,34 @@ again:
 	if (o_stdout) {
 		/* output to stdout */
 		of = stdout;
+	} else if (of != NULL) {
+		/*
+		 * Retrying into the file we have.  url->offset is where the
+		 * server really restarted: after a Range request that is
+		 * count, but a server that ignores Range sends everything
+		 * again, and then what we wrote so far is replaced.
+		 */
+		if (url->offset > count) {
+			warnx("%s: gap in retry", shown(URL));
+			goto failure;
+		}
+		if (fstat(fileno(of), &nsb) == -1) {
+			warn("%s: fstat()", path);
+			goto failure;
+		}
+		if (!S_ISREG(nsb.st_mode)) {
+			/* bytes already written cannot be taken back */
+			if (url->offset != count) {
+				warnx("%s: server restarted the transfer, "
+				    "cannot retry into %s", shown(URL), path);
+				goto failure;
+			}
+		} else if (fflush(of) == EOF ||
+		    ftruncate(fileno(of), url->offset) == -1 ||
+		    fseeko(of, url->offset, SEEK_SET) != 0) {
+			warn("%s", tmppath != NULL ? tmppath : path);
+			goto failure;
+		}
 	} else if (r_flag && sb.st_size != -1) {
 		/* resume mode, local file exists */
 		if (!F_flag && us.mtime && sb.st_mtime != us.mtime && tries == 1) {
@@ -891,6 +926,7 @@ again:
 		    path, (intmax_t)count, (intmax_t)us.size);
 		if(!o_stdout && a_flag && count > size_prev) {
 			fclose(f);
+			f = NULL;
 			if (w_secs)
 				sleep(w_secs);
 			tries++;

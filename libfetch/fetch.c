@@ -474,11 +474,11 @@ nohost:
 
 	DEBUGF("scheme:   \"%s\"\n"
 	    "user:     \"%s\"\n"
-	    "password: \"%s\"\n"
+	    "password: %s\n"
 	    "host:     \"%s\"\n"
 	    "port:     \"%d\"\n"
 	    "document: \"%s\"\n",
-	    u->scheme, u->user, u->pwd,
+	    u->scheme, u->user, *u->pwd ? "<hidden>" : "\"\"",
 	    u->host, u->port, u->doc);
 
 	return (u);

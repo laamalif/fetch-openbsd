@@ -1349,15 +1349,39 @@ fetch_writev(conn_t *conn, struct iovec *iov, int iovcnt)
 
 
 /*
+ * What the debugging output may show of an outgoing line: credentials are
+ * not echoed, since that output is pasted into bug reports.  The header
+ * name stays, so the request can still be followed.
+ */
+static const char *
+fetch_loggable(const char *str, char *buf, size_t buflen)
+{
+	size_t n;
+
+	if (strncmp(str, "PASS ", 5) == 0) {
+		snprintf(buf, buflen, "PASS <hidden>");
+		return (buf);
+	}
+	if (strncasecmp(str, "Authorization:", 14) == 0 ||
+	    strncasecmp(str, "Proxy-Authorization:", 20) == 0) {
+		n = strcspn(str, ":") + 1;
+		snprintf(buf, buflen, "%.*s <hidden>", (int)n, str);
+		return (buf);
+	}
+	return (str);
+}
+
+/*
  * Write a line of text to a connection w/ timeout
  */
 int
 fetch_putln(conn_t *conn, const char *str, size_t len)
 {
 	struct iovec iov[2];
+	char shown[64];
 	int ret;
 
-	DEBUGF(">>> %s\n", str);
+	DEBUGF(">>> %s\n", fetch_loggable(str, shown, sizeof(shown)));
 	iov[0].iov_base = __DECONST(char *, str);
 	iov[0].iov_len = len;
 	iov[1].iov_base = __DECONST(char *, ENDL);
