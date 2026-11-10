@@ -90,8 +90,8 @@ static pid_t	 pgrp;		/*        our process group */
 static long	 w_secs;	/*    -w: retry delay */
 static int	 family = PF_UNSPEC;	/* -[46]: address family to use */
 
-static int	 siginfo;	/* SIGINFO received */
-static int	 sigint;	/* SIGINT received */
+static volatile sig_atomic_t siginfo;	/* SIGINFO received */
+static volatile sig_atomic_t sigint;	/* SIGINT received */
 
 static long	 ftp_timeout = TIMEOUT;	/* default timeout for FTP transfers */
 static long	 http_timeout = TIMEOUT;/* default timeout for HTTP transfers */
@@ -423,7 +423,7 @@ fetch(char *URL, const char *path, int *is_http)
 	char flags[8];
 	const char *slash;
 	char *tmppath;
-	int r, tries;
+	int fd, r, tries;
 	unsigned timeout;
 	int timedout = 0;
 	char *ptr;
@@ -618,6 +618,7 @@ again:
 		if (!F_flag && us.mtime && sb.st_mtime != us.mtime && tries == 1) {
 			/* no match! have to refetch */
 			fclose(f);
+			f = NULL;
 			/* if precious, warn the user and give up */
 			if (R_flag) {
 				warnx("%s: local modification time "
@@ -682,12 +683,14 @@ again:
 		 * remote files didn't match.
 		 */
 
-		if (url->offset > 0) {
+		if (f == NULL || url->offset > 0) {
 			/*
 			 * We tried to restart a transfer, but for
 			 * some reason gave up - so we have to restart
 			 * from scratch if we want the whole file
 			 */
+			if (f != NULL)
+				fclose(f);
 			url->offset = 0;
 			if ((f = fetchXGet(url, &us, flags)) == NULL) {
 				warnx("%s: %s", URL, fetchLastErrString);
@@ -708,13 +711,19 @@ again:
 			asprintf(&tmppath, "%.*s.fetch.XXXXXX.%s",
 			    (int)(slash - path), path, slash);
 			if (tmppath != NULL) {
-				if (mkstemps(tmppath, strlen(slash) + 1) == -1) {
+				if ((fd = mkstemps(tmppath, strlen(slash) + 1)) == -1) {
 					warn("%s: mkstemps()", path);
 					goto failure;
 				}
-				of = fopen(tmppath, "w");
-				chown(tmppath, sb.st_uid, sb.st_gid);
-				chmod(tmppath, sb.st_mode & ALLPERMS);
+				/* work on the descriptor, not on the name */
+				(void)fchown(fd, sb.st_uid, sb.st_gid);
+				(void)fchmod(fd, sb.st_mode & ALLPERMS);
+				if ((of = fdopen(fd, "w")) == NULL) {
+					warn("%s: fdopen()", tmppath);
+					close(fd);
+					unlink(tmppath);
+					goto failure;
+				}
 			}
 		}
 		if (of == NULL)
@@ -1155,7 +1164,8 @@ main(int argc, char *argv[])
 			if (o_stdout) {
 				e = fetch(*argv, "-", &is_http);
 			} else if (o_directory) {
-				asprintf(&q, "%s/%s", o_filename, p);
+				if (asprintf(&q, "%s/%s", o_filename, p) == -1)
+					err(1, NULL);
 				e = fetch(*argv, q, &is_http);
 				free(q);
 			} else {
