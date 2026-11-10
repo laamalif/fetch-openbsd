@@ -99,7 +99,16 @@ done
 run "https --ca-path"		0 $F -q --ca-path="$T/ca" -o - https://www.openbsd.org/robots.txt
 run "https --ca-path, empty dir" 1 sh -c "mkdir -p empty; $F -q --ca-path=$T/empty -o - https://www.openbsd.org/robots.txt"
 run "https --ca-cert"		0 $F -q --ca-cert=/etc/ssl/cert.pem -o - https://www.openbsd.org/robots.txt
-run "https via HTTP proxy"	0 env HTTP_PROXY=http://192.168.1.254:8121 $F -q -o - https://www.openbsd.org/robots.txt
+# Optional: set TEST_HTTP_PROXY=http://host:port and/or TEST_SOCKS5_PROXY=host:port.
+if [ -n "$TEST_HTTP_PROXY" ]; then
+	run "https via HTTP proxy" 0 env HTTP_PROXY=$TEST_HTTP_PROXY $F -q -o - https://www.openbsd.org/robots.txt
+	run "http via HTTP proxy, remote" 0 env HTTP_PROXY=$TEST_HTTP_PROXY $F -q -o - http://www.openbsd.org/robots.txt
+fi
+if [ -n "$TEST_SOCKS5_PROXY" ]; then
+	run "http via SOCKS5" 0 env SOCKS5_PROXY=$TEST_SOCKS5_PROXY $F -q -o - http://www.openbsd.org/robots.txt
+	run "https via SOCKS5" 0 env SOCKS5_PROXY=$TEST_SOCKS5_PROXY $F -q -o - https://www.openbsd.org/robots.txt
+	run "SOCKS5, unreachable target" 1 env SOCKS5_PROXY=$TEST_SOCKS5_PROXY $F -q -o - http://127.0.0.1:1/x
+fi
 run "ftp passive"		0 $F -q -o - ftp://ftp.gnu.org/README
 run "ftp active"		0 $F -q -p -o - ftp://ftp.gnu.org/README
 
@@ -109,7 +118,13 @@ grep -q '^root:' "$T/out" && { echo "FAIL: /etc/passwd leaked"; fail=1; } ||
     echo "ok:   /etc/passwd not leaked"
 
 # Progress meter and setproctitle need a terminal.
+# script(1) can return before the command has finished: wait for the file.
 script -c "$F -o dst/pty.bin $H/bytes/20000" "$T/pty" >/dev/null 2>&1
+n=0
+while [ $n -lt 20 ] && [ "$(stat -f %z dst/pty.bin 2>/dev/null)" != 20000 ]; do
+	sleep 0.5; n=$((n + 1))
+done
+sleep 1
 flags=$(lastcomm fetch | head -1 | awk '{print $2}')
 case $flags in *[PU]*) echo "FAIL: progress meter (flags $flags)"; fail=1;;
 *) [ "$(stat -f %z dst/pty.bin)" = 20000 ] && echo "ok:   progress meter on a tty" ||
