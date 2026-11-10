@@ -140,7 +140,7 @@ static struct option longopts[] =
 	{ "require-size", required_argument, NULL, 'S' },
 	{ "print-size", no_argument, NULL, 's' },
 	{ "timeout", required_argument, NULL, 'T' },
-	{ "passive-portrange-default", no_argument, NULL, 'T' },
+	{ "passive-portrange-default", no_argument, NULL, 'U' },
 	{ "verbose", no_argument, NULL, 'v' },
 	{ "retry-delay", required_argument, NULL, 'w' },
 
@@ -423,12 +423,13 @@ fetch(char *URL, const char *path, int *is_http)
 	char flags[8];
 	const char *slash;
 	char *tmppath;
-	int fd, r, tries;
+	int fd, ofclosed, r, tries, werr;
 	unsigned timeout;
 	int timedout = 0;
 	char *ptr;
 
 	f = of = NULL;
+	ofclosed = 0;
 	tmppath = NULL;
 
 	timeout = 0;
@@ -848,13 +849,34 @@ again:
 
  success:
 	r = 0;
+	/*
+	 * The data still in the buffer, and the close itself, can fail
+	 * (disk full, quota, NFS) after every fwrite() succeeded: find out
+	 * before the output replaces anything.
+	 */
+	if (of == stdout) {
+		if (fflush(of) == EOF || ferror(of)) {
+			warn("stdout");
+			goto failure_keep;
+		}
+	} else if (of != NULL) {
+		werr = fflush(of) == EOF || ferror(of);
+		if (fclose(of) == EOF)
+			werr = 1;
+		of = NULL;
+		ofclosed = 1;
+		if (werr) {
+			warn("%s", tmppath != NULL ? tmppath : path);
+			goto failure;
+		}
+	}
 	if (tmppath != NULL && rename(tmppath, path) == -1) {
 		warn("%s: rename()", path);
 		goto failure_keep;
 	}
 	goto done;
  failure:
-	if (of && of != stdout && !R_flag && !r_flag)
+	if ((of != NULL || ofclosed) && of != stdout && !R_flag && !r_flag)
 		if (stat(path, &sb) != -1 && (sb.st_mode & S_IFREG))
 			unlink(tmppath ? tmppath : path);
 	if (R_flag && tmppath != NULL && sb.st_size == -1)
