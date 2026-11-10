@@ -54,5 +54,6 @@ changed in the port and why.
 
 ## Licence
 
-BSD-2-Clause for the FreeBSD code (see the file headers); ISC for the new
-files (`sandbox.c`, `compat.h`, ...).
+BSD-3-Clause for the FreeBSD code (`libfetch/*` and `main.c`; `libfetch/ftp.c`
+also carries a Beerware notice), ISC for the new files (`sandbox.c`,
+`sandbox.h`, `compat.h`).  The file headers are authoritative.
