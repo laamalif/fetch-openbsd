@@ -1,0 +1,5 @@
+repo:   https://github.com/freebsd/freebsd-src
+branch: stable/15
+commit: 6df22096ddb27edb169cfb6758d1dab130f9f683
+date:   2026-11-09T20:32:52-08:00
+paths:  lib/libfetch usr.bin/fetch
