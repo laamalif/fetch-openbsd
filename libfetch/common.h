@@ -112,6 +112,7 @@ struct iovec;
 void		 fetch_seterr(struct fetcherr *, int);
 void		 fetch_syserr(void);
 void		 fetch_info(const char *, ...) __printflike(1, 2);
+void		 fetch_debug(const char *, ...) __printflike(1, 2);
 int		 fetch_socks5_getenv(char **host, int *port);
 int		 fetch_socks5_init(conn_t *conn, const char *host,
 		     int port, int verbose);
@@ -144,7 +145,7 @@ int		 fetch_no_proxy_match(const char *);
 #define DEBUGF(...)							\
 	do {								\
 		if (fetchDebug)						\
-			fprintf(stderr, __VA_ARGS__);			\
+			fetch_debug(__VA_ARGS__);			\
 	} while (0)
 #else
 #define DEBUGF(...)							\

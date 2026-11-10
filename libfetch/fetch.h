@@ -130,6 +130,7 @@ struct url	*fetchMakeURL(const char *, const char *, int,
 		     const char *, const char *, const char *);
 struct url	*fetchParseURL(const char *);
 void		 fetchFreeURL(struct url *);
+char		*fetch_redact(const char *);
 
 __END_DECLS
 

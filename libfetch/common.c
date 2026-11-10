@@ -40,6 +40,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <netdb.h>
 #include <poll.h>
 #include <pwd.h>
@@ -48,6 +49,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <vis.h>
 
 #include "fetch.h"
 #include "common.h"
@@ -220,19 +222,96 @@ fetch_syserr(void)
 
 
 /*
+ * Print a line on stderr with every control character made visible.  The
+ * text may come from the peer (a redirect, a certificate), and a terminal
+ * acts on escape sequences.
+ */
+static void
+fetch_emit(int flags, const char *fmt, va_list ap)
+{
+	char *msg, *vis;
+	int serrno = errno;
+
+	if (vasprintf(&msg, fmt, ap) == -1)
+		msg = NULL;
+	if (msg != NULL && stravis(&vis, msg, flags | VIS_CSTYLE |
+	    VIS_OCTAL | VIS_NOSLASH) != -1) {
+		fputs(vis, stderr);
+		free(vis);
+	} else
+		fputs("(message lost)", stderr);
+	free(msg);
+	errno = serrno;
+}
+
+/*
  * Emit status message
  */
 void
 fetch_info(const char *fmt, ...)
 {
 	va_list ap;
-	int serrno = errno;
 
 	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
+	fetch_emit(VIS_NL | VIS_TAB, fmt, ap);
 	va_end(ap);
 	fputc('\n', stderr);
-	errno = serrno;
+}
+
+/*
+ * Emit a debugging message, which carries its own newlines
+ */
+void
+fetch_debug(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	fetch_emit(VIS_NL | VIS_TAB, fmt, ap);
+	va_end(ap);
+}
+
+/*
+ * A copy of a URL, as typed or as a server sent it, that is safe to show:
+ * without the user name and password, and with control characters made
+ * visible.  Returns NULL if out of memory.
+ */
+char *
+fetch_redact(const char *url)
+{
+	const char *at, *auth, *end;
+	char *plain, *vis;
+
+	auth = strstr(url, "://");
+	auth = auth != NULL ? auth + 3 : url;
+	end = auth + strcspn(auth, "/?#");
+	for (at = NULL; end > auth; end--)
+		if (end[-1] == '@') {
+			at = end;
+			break;
+		}
+	if (at == NULL) {
+		if ((plain = strdup(url)) == NULL)
+			return (NULL);
+	} else if (asprintf(&plain, "%.*s%s", (int)(auth - url), url,
+	    at) == -1)
+		return (NULL);
+	if (stravis(&vis, plain, VIS_NL | VIS_TAB | VIS_CSTYLE |
+	    VIS_OCTAL | VIS_NOSLASH) == -1)
+		vis = NULL;
+	free(plain);
+	return (vis);
+}
+
+/*
+ * Milliseconds to wait for what is left on the clock, as poll() takes them
+ */
+static int
+fetch_deltams(const struct timeval *delta)
+{
+	if (delta->tv_sec >= INT_MAX / 1000 - 1)
+		return (INT_MAX);
+	return (delta->tv_sec * 1000 + delta->tv_usec / 1000);
 }
 #define fetch_verbose(...)						\
 	do { if (verbose) fetch_info(__VA_ARGS__); } while (0)
@@ -672,8 +751,7 @@ fetch_connect(const char *host, int port, int af, int verbose)
 					goto next;
 				}
 				timersub(&timeout, &now, &delta);
-				deltams = delta.tv_sec * 1000 +
-				    delta.tv_usec / 1000;
+				deltams = fetch_deltams(&delta);
 			}
 			/* wait for something to happen */
 			if ((err = poll(&pfd, 1, deltams)) > 0)
@@ -846,8 +924,7 @@ fetch_tls_handshake(conn_t *conn)
 				return (-1);
 			}
 			timersub(&timeout, &now, &delta);
-			deltams = delta.tv_sec * 1000 +
-			    delta.tv_usec / 1000;
+			deltams = fetch_deltams(&delta);
 		}
 		ret = poll(&pfd, 1, deltams);
 		if (ret == 0) {
@@ -1008,8 +1085,7 @@ fetch_read(conn_t *conn, void *buf, size_t len)
 				return (-1);
 			}
 			timersub(&timeout, &now, &delta);
-			deltams = delta.tv_sec * 1000 +
-			    delta.tv_usec / 1000;
+			deltams = fetch_deltams(&delta);
 		}
 		/* wait for the socket to become readable */
 		if (poll(&pfd, 1, deltams) < 0) {
@@ -1254,8 +1330,7 @@ fetch_writev(conn_t *conn, struct iovec *iov, int iovcnt)
 				return (-1);
 			}
 			timersub(&timeout, &now, &delta);
-			deltams = delta.tv_sec * 1000 +
-			    delta.tv_usec / 1000;
+			deltams = fetch_deltams(&delta);
 		}
 		/* wait for the socket to become writeable */
 		if (poll(&pfd, 1, deltams) < 0) {

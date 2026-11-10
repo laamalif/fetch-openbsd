@@ -40,6 +40,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -54,6 +55,8 @@
 
 #define MINBUFSIZE	16384
 #define TIMEOUT		120
+#define MAXSECS		(24 * 60 * 60 * 365)	/* a year is no timeout */
+#define MAXBUFSIZE	(1024 * 1024 * 1024)
 
 /* Option flags */
 static int	 A_flag;	/*    -A: do not follow 302 redirects */
@@ -82,7 +85,8 @@ static int	 once_flag;	/*    -1: stop at first successful file */
 static int	 p_flag;	/* -[Pp]: use passive FTP */
 static int	 R_flag;	/*    -R: don't delete partial files */
 static int	 r_flag;	/*    -r: restart previous transfer */
-static off_t	 S_size;        /*    -S: require size to match */
+static int	 S_flag;	/*    -S: a size is required ... */
+static off_t	 S_size;	/*        ... to match this */
 static int	 s_flag;        /*    -s: show size, don't fetch */
 static long	 T_secs;	/*    -T: transfer timeout in seconds */
 static int	 t_flag;	/*!   -t: workaround TCP bug */
@@ -412,6 +416,27 @@ query_auth(struct url *URL)
 }
 
 /*
+ * The text of a URL or of a server's error, fit for the terminal: a
+ * password typed into a URL, or sent in a redirect, is not shown, and
+ * control characters are made visible.  Never NULL.  Two results may be
+ * used at once (as in one warnx() call); a third call reuses the first.
+ */
+static const char *
+shown(const char *s)
+{
+	static char *slot[2];
+	static int next;
+	char *r;
+
+	next ^= 1;
+	free(slot[next]);
+	if ((r = fetch_redact(s)) == NULL)
+		r = strdup("(?)");
+	slot[next] = r;
+	return (r != NULL ? r : "(?)");
+}
+
+/*
  * Fetch a file
  */
 static int
@@ -459,7 +484,7 @@ fetch(char *URL, const char *path, int *is_http)
 		goto failure;
 	}
 	if ((url = fetchParseURL(URL)) == NULL) {
-		warnx("%s: parse error", URL);
+		warnx("%s: parse error", shown(URL));
 		goto failure;
 	}
 
@@ -525,7 +550,7 @@ fetch(char *URL, const char *path, int *is_http)
 	if (s_flag) {
 		r = fetchStat(url, &us, flags);
 		if (r == -1) {
-			warnx("%s", fetchLastErrString);
+			warnx("%s", shown(fetchLastErrString));
 			goto failure;
 		}
 		if (us.size == -1)
@@ -580,11 +605,11 @@ again:
 		    strcmp(fetchLastErrString, "Not Modified") == 0) {
 			/* HTTP Not Modified Response, return OK. */
 			if (v_level > 0)
-				warnx("%s: %s", URL, fetchLastErrString);
+				warnx("%s: %s", shown(URL), shown(fetchLastErrString));
 			r = 0;
 			goto done;
 		} else {
-			warnx("%s: %s", URL, fetchLastErrString);
+			warnx("%s: %s", shown(URL), shown(fetchLastErrString));
 			goto failure;
 		}
 	}
@@ -592,12 +617,12 @@ again:
 		goto signal;
 
 	/* check that size is as expected */
-	if (S_size) {
+	if (S_flag) {
 		if (us.size == -1) {
-			warnx("%s: size unknown", URL);
+			warnx("%s: size unknown", shown(URL));
 		} else if (us.size != S_size) {
 			warnx("%s: size mismatch: expected %jd, actual %jd",
-			    URL, (intmax_t)S_size, (intmax_t)us.size);
+			    shown(URL), (intmax_t)S_size, (intmax_t)us.size);
 			goto failure;
 		}
 	}
@@ -612,7 +637,7 @@ again:
 	}
 
 	if (us.size == -1 && !o_stdout && v_level > 0)
-		warnx("%s: size of remote file is not known", URL);
+		warnx("%s: size of remote file is not known", shown(URL));
 	if (v_level > 1) {
 		if (sb.st_size != -1)
 			fprintf(stderr, "local size / mtime: %jd / %ld\n",
@@ -640,7 +665,7 @@ again:
 			}
 		} else if (url->offset > sb.st_size) {
 			/* gap between what we asked for and what we got */
-			warnx("%s: gap in resume mode", URL);
+			warnx("%s: gap in resume mode", shown(URL));
 			fclose(of);
 			of = NULL;
 			/* picked up again later */
@@ -669,7 +694,7 @@ again:
 			if (nsb.st_dev != sb.st_dev ||
 			    nsb.st_ino != sb.st_ino ||
 			    nsb.st_size != sb.st_size) {
-				warnx("%s: file has changed", URL);
+				warnx("%s: file has changed", shown(URL));
 				fclose(of);
 				of = NULL;
 				sb = nsb;
@@ -706,7 +731,7 @@ again:
 				fclose(f);
 			url->offset = 0;
 			if ((f = fetchXGet(url, &us, flags)) == NULL) {
-				warnx("%s: %s", URL, fetchLastErrString);
+				warnx("%s: %s", shown(URL), shown(fetchLastErrString));
 				goto failure;
 			}
 			if (sigint)
@@ -853,7 +878,7 @@ again:
 	if (!timedout) {
 		/* check the status of our files */
 		if (ferror(f))
-			warn("%s", URL);
+			warn("%s", shown(URL));
 		if (ferror(of))
 			warn("%s", path);
 		if (ferror(f) || ferror(of))
@@ -977,7 +1002,8 @@ main(int argc, char *argv[])
 	struct stat sb;
 	struct sigaction sa;
 	const char *p, *s;
-	char *end, *q;
+	const char *errstr;
+	char *q;
 	int c, e, is_http, r;
 
 	/* Replaces SO_NOSIGPIPE: a closed peer must give EPIPE, not a signal. */
@@ -1005,9 +1031,10 @@ main(int argc, char *argv[])
 			a_flag = 1;
 			break;
 		case 'B':
-			B_size = (off_t)strtol(optarg, &end, 10);
-			if (*optarg == '\0' || *end != '\0')
-				errx(1, "invalid buffer size (%s)", optarg);
+			B_size = strtonum(optarg, 0, MAXBUFSIZE, &errstr);
+			if (errstr != NULL)
+				errx(1, "buffer size (%s) is %s", optarg,
+				    errstr);
 			break;
 		case 'b':
 			warnx("warning: the -b option is deprecated");
@@ -1073,17 +1100,18 @@ main(int argc, char *argv[])
 			r_flag = 1;
 			break;
 		case 'S':
-			S_size = strtoll(optarg, &end, 10);
-			if (*optarg == '\0' || *end != '\0')
-				errx(1, "invalid size (%s)", optarg);
+			S_size = strtonum(optarg, 0, LLONG_MAX, &errstr);
+			if (errstr != NULL)
+				errx(1, "size (%s) is %s", optarg, errstr);
+			S_flag = 1;
 			break;
 		case 's':
 			s_flag = 1;
 			break;
 		case 'T':
-			T_secs = strtol(optarg, &end, 10);
-			if (*optarg == '\0' || *end != '\0')
-				errx(1, "invalid timeout (%s)", optarg);
+			T_secs = strtonum(optarg, 0, MAXSECS, &errstr);
+			if (errstr != NULL)
+				errx(1, "timeout (%s) is %s", optarg, errstr);
 			break;
 		case 't':
 			t_flag = 1;
@@ -1097,9 +1125,9 @@ main(int argc, char *argv[])
 			break;
 		case 'w':
 			a_flag = 1;
-			w_secs = strtol(optarg, &end, 10);
-			if (*optarg == '\0' || *end != '\0')
-				errx(1, "invalid delay (%s)", optarg);
+			w_secs = strtonum(optarg, 0, MAXSECS, &errstr);
+			if (errstr != NULL)
+				errx(1, "delay (%s) is %s", optarg, errstr);
 			break;
 		case OPTION_BIND_ADDRESS:
 			setenv("FETCH_BIND_ADDRESS", optarg, 1);
@@ -1163,16 +1191,16 @@ main(int argc, char *argv[])
 
 	/* timeouts */
 	if ((s = getenv("FTP_TIMEOUT")) != NULL) {
-		ftp_timeout = strtol(s, &end, 10);
-		if (*s == '\0' || *end != '\0' || ftp_timeout < 0) {
-			warnx("FTP_TIMEOUT (%s) is not a positive integer", s);
+		ftp_timeout = strtonum(s, 0, MAXSECS, &errstr);
+		if (errstr != NULL) {
+			warnx("FTP_TIMEOUT (%s) is %s", s, errstr);
 			ftp_timeout = 0;
 		}
 	}
 	if ((s = getenv("HTTP_TIMEOUT")) != NULL) {
-		http_timeout = strtol(s, &end, 10);
-		if (*s == '\0' || *end != '\0' || http_timeout < 0) {
-			warnx("HTTP_TIMEOUT (%s) is not a positive integer", s);
+		http_timeout = strtonum(s, 0, MAXSECS, &errstr);
+		if (errstr != NULL) {
+			warnx("HTTP_TIMEOUT (%s) is %s", s, errstr);
 			http_timeout = 0;
 		}
 	}

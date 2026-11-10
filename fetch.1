@@ -108,7 +108,7 @@ error when the requested object does not exist.
 .It Fl a , -retry
 Automatically retry the transfer upon soft failures.
 .It Fl B Ar bytes , Fl -buffer-size= Ns Ar bytes
-Specify the read buffer size in bytes.
+Specify the read buffer size in bytes, at most 1 GiB.
 The default is 16,384 bytes.
 Attempts to set a buffer size lower than this will be silently
 ignored.
@@ -250,7 +250,7 @@ and
 flags are mutually exclusive.
 .It Fl S Ar bytes , Fl -require-size= Ns Ar bytes
 Require the file size reported by the server to match the specified
-value.
+value, which may be 0 to require an empty file.
 If it does not, a message is printed and the file is not fetched.
 If the server does not support reporting file sizes, this option is
 ignored and the file is fetched unconditionally.
@@ -258,7 +258,8 @@ ignored and the file is fetched unconditionally.
 Print the size in bytes of each requested file, without fetching it.
 .It Fl T Ar seconds , Fl -timeout= Ns Ar seconds
 Set the network timeout to
-.Ar seconds .
+.Ar seconds ,
+at most one year.
 Overrides the environment variables
 .Ev FTP_TIMEOUT
 for FTP transfers or
@@ -279,7 +280,7 @@ Increase verbosity level.
 .It Fl w Ar seconds , Fl -retry-delay= Ns Ar seconds
 When the
 .Fl a
-flag is specified, wait this many seconds between successive retries.
+flag is specified, wait this many seconds, at most one year, between successive retries.
 .El
 .Pp
 If

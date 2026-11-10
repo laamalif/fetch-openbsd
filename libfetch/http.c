@@ -1898,9 +1898,14 @@ http_request_body(struct url *URL, const char *op, struct url_stat *us,
 				}
 				if (loc != NULL)
 					fetchFreeURL(loc);
-				if (verbose)
+				if (verbose) {
+					char *shown = fetch_redact(p);
+
 					fetch_info("%d redirect to %s",
-					    conn->err, p);
+					    conn->err,
+					    shown != NULL ? shown : "(?)");
+					free(shown);
+				}
 				if (*p == '/')
 					/* absolute path */
 					loc = fetchMakeURL(url->scheme, url->host,
