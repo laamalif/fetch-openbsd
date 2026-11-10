@@ -45,8 +45,6 @@
 .Op Fl N Ar file
 .Op Fl -no-passive
 .Op Fl -no-proxy= Ns Ar list
-.Op Fl -no-sslv3
-.Op Fl -no-tlsv1
 .Op Fl -no-verify-hostname
 .Op Fl -no-verify-peer
 .Op Fl o Ar file
@@ -66,8 +64,6 @@
 .Op Fl N Ar file
 .Op Fl -no-passive
 .Op Fl -no-proxy= Ns Ar list
-.Op Fl -no-sslv3
-.Op Fl -no-tlsv1
 .Op Fl -no-verify-hostname
 .Op Fl -no-verify-peer
 .Op Fl o Ar file
@@ -188,18 +184,6 @@ Forces the FTP code to use active mode.
 Either a single asterisk, which disables the use of proxies
 altogether, or a comma- or whitespace-separated list of hosts for
 which proxies should not be used.
-.It Fl -no-sslv3
-[SSL]
-Do not allow SSL version 3 when negotiating the connection.
-This option is deprecated and is provided for backward compatibility
-only.
-SSLv3 is disabled by default.
-Set
-.Ev SSL_ALLOW_SSL3
-to change this behavior.
-.It Fl -no-tlsv1
-[SSL]
-Do not allow TLS version 1 when negotiating the connection.
 .It Fl -no-verify-hostname
 [SSL]
 Do not verify that the hostname matches the subject of the
@@ -328,9 +312,6 @@ for a description of additional environment variables, including
 .Ev no_proxy ,
 .Ev SSL_CA_CERT_FILE ,
 .Ev SSL_CA_CERT_PATH ,
-.Ev SSL_ALLOW_SSL3 ,
-.Ev SSL_NO_TLS1 ,
-.Ev SSL_NO_TLS1_1 ,
 .Ev SSL_NO_TLS1_2 ,
 .Ev SSL_NO_VERIFY_HOSTNAME
 and

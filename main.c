@@ -104,8 +104,6 @@ enum options
 	OPTION_NO_PROXY,
 	OPTION_SSL_CA_CERT_FILE,
 	OPTION_SSL_CA_CERT_PATH,
-	OPTION_SSL_NO_SSL3,
-	OPTION_SSL_NO_TLS1,
 	OPTION_SSL_NO_VERIFY_HOSTNAME,
 	OPTION_SSL_NO_VERIFY_PEER
 };
@@ -152,8 +150,6 @@ static struct option longopts[] =
 	{ "no-proxy", required_argument, NULL, OPTION_NO_PROXY },
 	{ "ca-cert", required_argument, NULL, OPTION_SSL_CA_CERT_FILE },
 	{ "ca-path", required_argument, NULL, OPTION_SSL_CA_CERT_PATH },
-	{ "no-sslv3", no_argument, NULL, OPTION_SSL_NO_SSL3 },
-	{ "no-tlsv1", no_argument, NULL, OPTION_SSL_NO_TLS1 },
 	{ "no-verify-hostname", no_argument, NULL, OPTION_SSL_NO_VERIFY_HOSTNAME },
 	{ "no-verify-peer", no_argument, NULL, OPTION_SSL_NO_VERIFY_PEER },
 
@@ -870,13 +866,13 @@ usage(void)
 	fprintf(stderr, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
 "usage: fetch [-146AadFlMmnPpqRrsUv] [-B bytes] [--bind-address=host]",
 "       [--ca-cert=file] [--ca-path=dir] [-i file] [-N file] [--no-passive]",
-"       [--no-proxy=list] [--no-sslv3] [--no-tlsv1] [--no-verify-hostname]",
-"       [--no-verify-peer] [-o file] [--referer=URL] [-S bytes] [-T seconds]",
+"       [--no-proxy=list] [--no-verify-hostname] [--no-verify-peer]",
+"       [-o file] [--referer=URL] [-S bytes] [-T seconds]",
 "       [--user-agent=agent-string] [-w seconds] URL ...",
 "       fetch [-146AadFlMmnPpqRrsUv] [-B bytes] [--bind-address=host]",
 "       [--ca-cert=file] [--ca-path=dir] [-i file] [-N file] [--no-passive]",
-"       [--no-proxy=list] [--no-sslv3] [--no-tlsv1] [--no-verify-hostname]",
-"       [--no-verify-peer] [-o file] [--referer=URL] [-S bytes] [-T seconds]",
+"       [--no-proxy=list] [--no-verify-hostname] [--no-verify-peer]",
+"       [-o file] [--referer=URL] [-S bytes] [-T seconds]",
 "       [--user-agent=agent-string] [-w seconds] -h host -f file [-c dir]");
 }
 
@@ -1032,12 +1028,6 @@ main(int argc, char *argv[])
 			break;
 		case OPTION_SSL_CA_CERT_PATH:
 			setenv("SSL_CA_CERT_PATH", optarg, 1);
-			break;
-		case OPTION_SSL_NO_SSL3:
-			setenv("SSL_NO_SSL3", "", 1);
-			break;
-		case OPTION_SSL_NO_TLS1:
-			setenv("SSL_NO_TLS1", "", 1);
 			break;
 		case OPTION_SSL_NO_VERIFY_HOSTNAME:
 			setenv("SSL_NO_VERIFY_HOSTNAME", "", 1);
