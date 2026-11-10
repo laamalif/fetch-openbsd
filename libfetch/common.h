@@ -38,6 +38,8 @@
 #define FTP_DEFAULT_PROXY_PORT	21
 #define HTTP_DEFAULT_PROXY_PORT	3128
 
+#include <sys/socket.h>
+
 #include <tls.h>
 
 /* Connection */
@@ -121,9 +123,13 @@ int		 fetch_default_proxy_port(const char *);
 struct addrinfo *fetch_resolve(const char *, int, int);
 int		 fetch_bind(int, int, const char *);
 conn_t		*fetch_connect(const char *, int, int, int);
+int		 fetch_connect_sd(int, const struct sockaddr *, socklen_t);
+int		 fetch_accept_sd(int, const struct sockaddr *);
+int		 fetch_same_host(const struct sockaddr *, const struct sockaddr *);
 conn_t		*fetch_reopen(int);
 int		 fetch_ssl(conn_t *, const struct url *, int);
 ssize_t		 fetch_read(conn_t *, void *, size_t);
+int		 fetch_read_exact(conn_t *, void *, size_t);
 ssize_t		 fetch_getln(conn_t *);
 ssize_t		 fetch_bufread(conn_t *, void *, size_t);
 ssize_t		 fetch_write(conn_t *, const void *, size_t);

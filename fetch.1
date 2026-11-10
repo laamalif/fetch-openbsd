@@ -192,10 +192,26 @@ for a description of the file format.
 Do not preserve the modification time of the transferred file.
 .It Fl -no-passive
 Forces the FTP code to use active mode.
+The data connection is accepted only from the server being fetched from,
+and is waited for no longer than the timeout (see
+.Fl T ) .
+In passive mode the data connection is made to the address of the
+control connection; only the port is taken from the server's reply.
 .It Fl -no-proxy= Ns Ar list
 Either a single asterisk, which disables the use of proxies
 altogether, or a comma- or whitespace-separated list of hosts for
 which proxies should not be used.
+An entry matches that host and the hosts below it:
+.Ql example.com
+matches
+.Ql example.com
+and
+.Ql www.example.com ,
+but not
+.Ql notexample.com .
+With a leading dot, as in
+.Ql .example.com ,
+only the hosts below it match.
 .It Fl -no-verify-hostname
 (HTTPS only)
 Do not verify that the hostname matches the subject of the
@@ -248,6 +264,15 @@ Note that the
 and
 .Fl r
 flags are mutually exclusive.
+The existing file is opened once, and the bytes are appended to that file;
+if the name is a symbolic link, the file it points to is the one resumed,
+as with
+.Xr ftp 1
+.Fl C .
+A transfer that starts afresh, and any transfer without
+.Fl r ,
+is written to a temporary file that replaces the name when complete,
+so a symbolic link of that name is replaced, not followed.
 .It Fl S Ar bytes , Fl -require-size= Ns Ar bytes
 Require the file size reported by the server to match the specified
 value, which may be 0 to require an empty file.
@@ -357,7 +382,8 @@ as with
 .It Ev NO_PROXY , no_proxy
 A single asterisk, or a comma- or whitespace-separated list of hosts for
 which proxies are not used, as with
-.Fl -no-proxy .
+.Fl -no-proxy ,
+including the way entries match.
 .It Ev SOCKS5_PROXY
 Address of a SOCKS5 proxy,
 .Ar host Ns Op : Ns Ar port ,

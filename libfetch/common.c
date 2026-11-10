@@ -481,6 +481,7 @@ fetch_socks5_init(conn_t *conn, const char *host, int port, int verbose)
 	 */
 	unsigned char buf[BUFF_SIZE];
 	unsigned char *ptr;
+	size_t len;
 	int ret = 1;
 
 	fetch_verbose("Initializing SOCKS5 connection: %s:%d", host, port);
@@ -497,7 +498,7 @@ fetch_socks5_init(conn_t *conn, const char *host, int port, int verbose)
 	}
 
 	/* Verify response from SOCKS5 server */
-	if (fetch_read(conn, buf, 2) != 2) {
+	if (fetch_read_exact(conn, buf, 2) != 0) {
 		ret = SOCKS5_ERR_READ_METHOD;
 		goto fail;
 	}
@@ -539,8 +540,13 @@ fetch_socks5_init(conn_t *conn, const char *host, int port, int verbose)
 		goto fail;
 	}
 
-	/* BND.ADDR is variable length, read the largest on non-blocking socket */
-	if (!fetch_read(conn, buf, BUFF_SIZE)) {
+	/*
+	 * The reply is VER REP RSV ATYP BND.ADDR BND.PORT, and BND.ADDR
+	 * is as long as ATYP says.  TCP keeps no message boundaries, so
+	 * read exactly that much: more would swallow the start of the
+	 * application protocol, less would leave SOCKS bytes in it.
+	 */
+	if (fetch_read_exact(conn, buf, HEAD_SIZE) != 0) {
 		ret = SOCKS5_ERR_REPLY;
 		goto fail;
 	}
@@ -580,6 +586,36 @@ fetch_socks5_init(conn_t *conn, const char *host, int port, int verbose)
 		goto fail;
 	default:
 		ret = SOCKS5_ERR_UNSPECIFIED;
+		goto fail;
+	}
+
+	/* RSV must be zero; ATYP says how much address follows */
+	if (*ptr++ != SOCKS_RSV) {
+		ret = SOCKS5_ERR_REPLY;
+		goto fail;
+	}
+	switch (*ptr) {
+	case SOCKS_ATYP_IPV4:
+		len = 4;
+		break;
+	case SOCKS_ATYP_IPV6:
+		len = 16;
+		break;
+	case SOCKS_ATYP_DOMAINNAME:
+		if (fetch_read_exact(conn, buf, 1) != 0) {
+			ret = SOCKS5_ERR_REPLY;
+			goto fail;
+		}
+		len = buf[0];
+		break;
+	default:
+		ret = SOCKS5_ERR_ADDR_UNSUPPORTED;
+		goto fail;
+	}
+	/* the bound address and port are of no use to us: consume them */
+	if (len + PORT_SIZE > sizeof(buf) ||
+	    fetch_read_exact(conn, buf, len + PORT_SIZE) != 0) {
+		ret = SOCKS5_ERR_REPLY;
 		goto fail;
 	}
 
@@ -650,18 +686,164 @@ fetch_socks5_getenv(char **host, int *port)
 }
 
 
+static int	 fetch_unmap(const struct sockaddr *, struct in_addr *);
+
+/*
+ * Connect sd to sa, giving up after fetchTimeout seconds when that is
+ * set.  The socket is made non-blocking; whether the connection really
+ * came up is asked of the socket (SO_ERROR), not guessed from what poll
+ * reported, as in OpenBSD's nc(1).  Returns 0, or -1 with errno set.
+ */
+int
+fetch_connect_sd(int sd, const struct sockaddr *sa, socklen_t salen)
+{
+	struct timeval now, timeout, delta;
+	struct pollfd pfd;
+	socklen_t optlen;
+	int deltams, optval, r;
+
+	(void)fcntl(sd, F_SETFL, fcntl(sd, F_GETFL) | O_NONBLOCK);
+	if (fetchTimeout > 0) {
+		gettimeofday(&timeout, NULL);
+		timeout.tv_sec += fetchTimeout;
+	}
+	if (connect(sd, sa, salen) == 0)
+		return (0);
+	if (errno != EINPROGRESS)
+		return (-1);
+
+	pfd.fd = sd;
+	pfd.events = POLLOUT;
+	for (;;) {
+		deltams = INFTIM;
+		if (fetchTimeout > 0) {
+			gettimeofday(&now, NULL);
+			if (!timercmp(&timeout, &now, >)) {
+				errno = ETIMEDOUT;
+				return (-1);
+			}
+			timersub(&timeout, &now, &delta);
+			deltams = fetch_deltams(&delta);
+		}
+		if ((r = poll(&pfd, 1, deltams)) > 0)
+			break;
+		if (r == -1 && (errno != EINTR || !fetchRestartCalls))
+			return (-1);
+	}
+	optlen = sizeof(optval);
+	if (getsockopt(sd, SOL_SOCKET, SO_ERROR, &optval, &optlen) == -1)
+		return (-1);
+	if (optval != 0) {
+		errno = optval;
+		return (-1);
+	}
+	return (0);
+}
+
+/*
+ * Accept a connection on the listening socket ls within the timeout,
+ * from the host expect only: whoever else reaches the port is dropped
+ * and the wait goes on, against the one deadline.  Returns the new
+ * descriptor, or -1 with errno set.
+ */
+int
+fetch_accept_sd(int ls, const struct sockaddr *expect)
+{
+	struct sockaddr_storage ss;
+	struct timeval now, timeout, delta;
+	struct pollfd pfd;
+	socklen_t l;
+	int d, deltams, r;
+
+	(void)fcntl(ls, F_SETFL, fcntl(ls, F_GETFL) | O_NONBLOCK);
+	if (fetchTimeout > 0) {
+		gettimeofday(&timeout, NULL);
+		timeout.tv_sec += fetchTimeout;
+	}
+	pfd.fd = ls;
+	pfd.events = POLLIN;
+	for (;;) {
+		deltams = INFTIM;
+		if (fetchTimeout > 0) {
+			gettimeofday(&now, NULL);
+			if (!timercmp(&timeout, &now, >)) {
+				errno = ETIMEDOUT;
+				return (-1);
+			}
+			timersub(&timeout, &now, &delta);
+			deltams = fetch_deltams(&delta);
+		}
+		if ((r = poll(&pfd, 1, deltams)) == -1) {
+			if (errno != EINTR || !fetchRestartCalls)
+				return (-1);
+			continue;
+		}
+		if (r == 0)
+			continue;
+		l = sizeof(ss);
+		if ((d = accept(ls, (struct sockaddr *)&ss, &l)) == -1) {
+			if (errno == EAGAIN || errno == ECONNABORTED ||
+			    errno == EINTR)
+				continue;
+			return (-1);
+		}
+		if (expect == NULL || fetch_same_host(
+		    (struct sockaddr *)&ss, expect))
+			return (d);
+		close(d);
+	}
+}
+
+/*
+ * Do two socket addresses name the same host, whatever their ports and
+ * whether either is an IPv4-mapped IPv6 address?
+ */
+int
+fetch_same_host(const struct sockaddr *a, const struct sockaddr *b)
+{
+	struct in_addr ia, ib;
+	const struct sockaddr_in6 *a6, *b6;
+
+	if (fetch_unmap(a, &ia) && fetch_unmap(b, &ib))
+		return (ia.s_addr == ib.s_addr);
+	if (a->sa_family != AF_INET6 || b->sa_family != AF_INET6)
+		return (0);
+	a6 = (const struct sockaddr_in6 *)a;
+	b6 = (const struct sockaddr_in6 *)b;
+	return (memcmp(&a6->sin6_addr, &b6->sin6_addr,
+	    sizeof(a6->sin6_addr)) == 0 &&
+	    a6->sin6_scope_id == b6->sin6_scope_id);
+}
+
+/* The IPv4 address in sa, if it holds one directly or IPv4-mapped. */
+static int
+fetch_unmap(const struct sockaddr *sa, struct in_addr *ia)
+{
+	const struct sockaddr_in6 *s6;
+
+	if (sa->sa_family == AF_INET) {
+		*ia = ((const struct sockaddr_in *)sa)->sin_addr;
+		return (1);
+	}
+	if (sa->sa_family != AF_INET6)
+		return (0);
+	s6 = (const struct sockaddr_in6 *)sa;
+	if (!IN6_IS_ADDR_V4MAPPED(&s6->sin6_addr))
+		return (0);
+	memcpy(ia, &s6->sin6_addr.s6_addr[12], sizeof(*ia));
+	return (1);
+}
+
 /*
  * Establish a TCP connection to the specified port on the specified host.
  */
 conn_t *
 fetch_connect(const char *host, int port, int af, int verbose)
 {
-	struct timeval now, timeout, delta;
-	struct pollfd pfd;
 	struct addrinfo *cais = NULL, *sais = NULL, *cai, *sai;
 	const char *bindaddr;
 	conn_t *conn = NULL;
-	int deltams, err = 0, serrno, sd = -1;
+	int err = 0, serrno, sd = -1;
 	char *sockshost;
 	int socksport;
 
@@ -701,12 +883,6 @@ fetch_connect(const char *host, int port, int af, int verbose)
 
 	/* try each server address in turn */
 	for (err = 0, sai = sais; sai != NULL; sai = sai->ai_next) {
-		/* start the clock */
-		if (fetchTimeout > 0) {
-			gettimeofday(&timeout, NULL);
-			timeout.tv_sec += fetchTimeout;
-		}
-
 		/* open socket */
 		if ((sd = socket(sai->ai_family, SOCK_STREAM, 0)) < 0) {
 			err = -1;
@@ -727,54 +903,11 @@ fetch_connect(const char *host, int port, int af, int verbose)
 			goto syserr;
 		}
 
-		/* make the socket non-blocking */
-		(void)fcntl(sd, F_SETFL, O_NONBLOCK);
-
-		/* attempt to connect to server address */
-		if ((err = connect(sd, sai->ai_addr, sai->ai_addrlen)) == 0)
+		/* connect, within the timeout, and ask what became of it */
+		if ((err = fetch_connect_sd(sd, sai->ai_addr,
+		    sai->ai_addrlen)) == 0)
 			break;
-		if (errno != EINPROGRESS)
-			goto next;
 
-		/* wait for connection */
-		for (;;) {
-			deltams = INFTIM;
-			pfd.fd = sd;
-			pfd.events = POLLOUT;
-
-			/* check the clock */
-			if (fetchTimeout > 0) {
-				gettimeofday(&now, NULL);
-				if (!timercmp(&timeout, &now, >)) {
-					errno = ETIMEDOUT;
-					err = -1;
-					goto next;
-				}
-				timersub(&timeout, &now, &delta);
-				deltams = fetch_deltams(&delta);
-			}
-			/* wait for something to happen */
-			if ((err = poll(&pfd, 1, deltams)) > 0)
-				break;
-			if (err == 0)
-				continue;
-			if (errno != EINTR)
-				goto syserr;
-			if (!fetchRestartCalls)
-				break;
-		}
-
-		/* check the outcome */
-		if (err > 0) {
-			if (pfd.revents == POLLOUT) {
-				/* connection established */
-				err = 0;
-				break;
-			}
-			/* we don't know the actual reason */
-			errno = ECONNREFUSED;
-		}
-next:
 		/* clean up before next attempt */
 		serrno = errno;
 		close(sd);
@@ -1015,17 +1148,20 @@ fetch_tls_write(struct tls *tls, const void *buf, size_t len, short *events)
 /*
  * Read from a connection w/ timeout
  */
-ssize_t
-fetch_read(conn_t *conn, void *buf, size_t len)
+static ssize_t
+fetch_read_by(conn_t *conn, void *buf, size_t len, const struct timeval *by)
 {
 	struct timeval now, timeout, delta;
 	struct pollfd pfd;
 	ssize_t rlen, total;
 	int deltams;
 
-	if (fetchTimeout > 0) {
+	if (by != NULL)
+		timeout = *by;
+	else if (fetchTimeout > 0) {
 		gettimeofday(&timeout, NULL);
 		timeout.tv_sec += fetchTimeout;
+		by = &timeout;
 	}
 
 	deltams = INFTIM;
@@ -1077,7 +1213,7 @@ fetch_read(conn_t *conn, void *buf, size_t len)
 			break;
 		}
 		/* check what's left of our timeout */
-		if (fetchTimeout > 0) {
+		if (by != NULL) {
 			gettimeofday(&now, NULL);
 			if (!timercmp(&timeout, &now, >)) {
 				errno = ETIMEDOUT;
@@ -1100,6 +1236,45 @@ fetch_read(conn_t *conn, void *buf, size_t len)
 	if (rlen < 0 && total == 0)
 		return (-1);
 	return (total);
+}
+
+ssize_t
+fetch_read(conn_t *conn, void *buf, size_t len)
+{
+	return (fetch_read_by(conn, buf, len, NULL));
+}
+
+/*
+ * Read exactly len bytes, no more, within one timeout for the whole of
+ * it, so that a peer cannot stretch the wait by sending a byte just
+ * before each deadline.  Returns 0, or -1 on error, timeout or EOF.
+ * Unlike fetch_read() it may wait for several segments: it is for
+ * protocol framing (the SOCKS5 replies), never for streaming data.
+ */
+int
+fetch_read_exact(conn_t *conn, void *buf, size_t len)
+{
+	struct timeval deadline, *by;
+	unsigned char *p;
+	ssize_t r;
+
+	by = NULL;
+	if (fetchTimeout > 0) {
+		gettimeofday(&deadline, NULL);
+		deadline.tv_sec += fetchTimeout;
+		by = &deadline;
+	}
+	p = buf;
+	while (len > 0) {
+		if ((r = fetch_read_by(conn, p, len, by)) <= 0) {
+			if (r == 0)
+				errno = ECONNRESET;
+			return (-1);
+		}
+		p += r;
+		len -= r;
+	}
+	return (0);
 }
 
 
@@ -1605,6 +1780,7 @@ fetch_no_proxy_match(const char *host)
 {
 	const char *no_proxy, *p, *q;
 	size_t h_len, d_len;
+	int sub;
 
 	if ((no_proxy = getenv("NO_PROXY")) == NULL &&
 	    (no_proxy = getenv("no_proxy")) == NULL)
@@ -1626,10 +1802,26 @@ fetch_no_proxy_match(const char *host)
 			if (*q == ',' || isspace((unsigned char)*q))
 				break;
 
+		/*
+		 * An entry names a host and the domain below it:
+		 * "example.com" matches example.com and www.example.com,
+		 * not notexample.com.  A leading dot, or "*.", asks for the
+		 * subdomains only.
+		 */
 		d_len = q - p;
+		sub = 0;
+		if (d_len > 1 && p[0] == '*' && p[1] == '.') {
+			p++;
+			d_len--;
+		}
+		if (d_len > 1 && p[0] == '.') {
+			p++;
+			d_len--;
+			sub = 1;
+		}
 		if (d_len > 0 && h_len >= d_len &&
-		    strncasecmp(host + h_len - d_len,
-			p, d_len) == 0) {
+		    strncasecmp(host + h_len - d_len, p, d_len) == 0 &&
+		    (h_len == d_len ? !sub : host[h_len - d_len - 1] == '.')) {
 			/* domain name matches */
 			return (1);
 		}

@@ -733,7 +733,15 @@ ftp_transfer(conn_t *conn, const char *oper, const char *file,
 			if (ftp_cmd(conn, "REST %lu", (u_long)offset) != FTP_FILE_OK)
 				goto sysouch;
 
-		/* construct sockaddr for data socket */
+		/*
+		 * Construct the sockaddr for the data socket.  Only the
+		 * port comes from the reply: the address in it is the
+		 * server's to name, and it could name any host this one
+		 * can reach (the FTP bounce attack in reverse).  The data
+		 * connection goes to the host of the control connection,
+		 * which is also right when the server sits behind NAT and
+		 * advertises its private address.
+		 */
 		l = sizeof(sa);
 		if (getpeername(conn->sd, (struct sockaddr *)&sa, &l) == -1)
 			goto sysouch;
@@ -744,19 +752,15 @@ ftp_transfer(conn_t *conn, const char *oper, const char *file,
 			sin6 = (struct sockaddr_in6 *)&sa;
 			if (e == FTP_EPASSIVE_MODE)
 				sin6->sin6_port = htons(port);
-			else {
-				memcpy(&sin6->sin6_addr, addr + 2, 16);
+			else
 				memcpy(&sin6->sin6_port, addr + 19, 2);
-			}
 			break;
 		case AF_INET:
 			sin4 = (struct sockaddr_in *)&sa;
 			if (e == FTP_EPASSIVE_MODE)
 				sin4->sin_port = htons(port);
-			else {
-				memcpy(&sin4->sin_addr, addr, 4);
+			else
 				memcpy(&sin4->sin_port, addr + 4, 2);
-			}
 			break;
 		default:
 			e = FTP_PROTOCOL_ERROR; /* XXX: error code should be prepared */
@@ -770,7 +774,8 @@ ftp_transfer(conn_t *conn, const char *oper, const char *file,
 		if (bindaddr != NULL && *bindaddr != '\0' &&
 		    (e = fetch_bind(sd, sa.ss_family, bindaddr)) != 0)
 			goto ouch;
-		if (connect(sd, (struct sockaddr *)&sa, sa.ss_len) == -1)
+		if (fetch_connect_sd(sd, (struct sockaddr *)&sa, sa.ss_len) ==
+		    -1)
 			goto sysouch;
 
 		/* make the server initiate the transfer */
@@ -871,8 +876,14 @@ ftp_transfer(conn_t *conn, const char *oper, const char *file,
 		if (e != FTP_CONNECTION_ALREADY_OPEN && e != FTP_OPEN_DATA_CONNECTION)
 			goto ouch;
 
-		/* accept the incoming connection and go to town */
-		if ((d = accept(sd, NULL, NULL)) == -1)
+		/*
+		 * Accept the incoming connection and go to town, but only
+		 * from the server we are talking to, and not for ever.
+		 */
+		l = sizeof(sa);
+		if (getpeername(conn->sd, (struct sockaddr *)&sa, &l) == -1)
+			goto sysouch;
+		if ((d = fetch_accept_sd(sd, (struct sockaddr *)&sa)) == -1)
 			goto sysouch;
 		close(sd);
 		sd = d;

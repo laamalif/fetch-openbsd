@@ -455,12 +455,14 @@ fetch(char *URL, const char *path, int *is_http)
 	mode_t omode;
 	uid_t ouid;
 	gid_t ogid;
-	int exists, fd, tmplive, r, tries, werr;
+	int exists, fd, rfd, rerrno, tmplive, r, tries, werr;
 	unsigned timeout;
 	int timedout = 0;
 	char *ptr;
 
 	f = of = NULL;
+	rfd = -1;
+	rerrno = 0;
 	tmplive = 0;
 	omode = 0;
 	ouid = (uid_t)-1;
@@ -578,6 +580,7 @@ again:
 	 */
 	sb.st_size = -1;
 	exists = 0;
+	rerrno = 0;
 	if (of != NULL && of != stdout) {
 		/*
 		 * A retry (-a): the output is open and holds the first
@@ -589,7 +592,39 @@ again:
 		r = stat(path, &sb);
 		exists = r == 0;
 		if (r == 0 && r_flag && S_ISREG(sb.st_mode)) {
-			url->offset = sb.st_size;
+			/*
+			 * Resuming: open the file now, once, and take its
+			 * size from that descriptor, so the offset we ask
+			 * for and the file we later write to are the same
+			 * file, whatever happens to the name meanwhile.  A
+			 * symlink is followed, as in ftp(1) and sftp(1).
+			 */
+			if ((rfd = open(path, O_RDWR)) == -1 &&
+			    (errno == EACCES || errno == EPERM ||
+			    errno == EROFS)) {
+				/*
+				 * Not writable: fine if it turns out to be
+				 * complete already, an error only if there
+				 * is something to add.
+				 */
+				rerrno = errno;
+				rfd = open(path, O_RDONLY);
+			}
+			if (rfd == -1) {
+				warn("%s: open()", path);
+				goto failure;
+			}
+			if (fstat(rfd, &sb) == -1) {
+				warn("%s: fstat()", path);
+				goto failure;
+			}
+			if (S_ISREG(sb.st_mode))
+				url->offset = sb.st_size;
+			else {
+				close(rfd);
+				rfd = -1;
+				sb.st_size = -1;
+			}
 		} else if (r == -1 || !S_ISREG(sb.st_mode)) {
 			/*
 			 * Whatever value sb.st_size has now is either
@@ -701,8 +736,6 @@ again:
 		} else if (url->offset > sb.st_size) {
 			/* gap between what we asked for and what we got */
 			warnx("%s: gap in resume mode", shown(URL));
-			fclose(of);
-			of = NULL;
 			/* picked up again later */
 		} else if (us.size != -1) {
 			if (us.size == sb.st_size)
@@ -715,26 +748,17 @@ again:
 				    (intmax_t)sb.st_size, (intmax_t)us.size);
 				goto failure;
 			}
-			/* we got it, open local file */
-			if ((of = fopen(path, "r+")) == NULL) {
-				warn("%s: fopen()", path);
+			/* we got it: the file is the one we measured */
+			if (rerrno != 0) {
+				errno = rerrno;
+				warn("%s: open()", path);
 				goto failure;
 			}
-			/* check that it didn't move under our feet */
-			if (fstat(fileno(of), &nsb) == -1) {
-				/* can't happen! */
-				warn("%s: fstat()", path);
+			if ((of = fdopen(rfd, "r+")) == NULL) {
+				warn("%s: fdopen()", path);
 				goto failure;
 			}
-			if (nsb.st_dev != sb.st_dev ||
-			    nsb.st_ino != sb.st_ino ||
-			    nsb.st_size != sb.st_size) {
-				warnx("%s: file has changed", shown(URL));
-				fclose(of);
-				of = NULL;
-				sb = nsb;
-				/* picked up again later */
-			}
+			rfd = -1;
 		}
 		/* seek to where we left off */
 		if (of != NULL && fseeko(of, url->offset, SEEK_SET) != 0) {
@@ -755,6 +779,10 @@ again:
 		 * vanilla run with no special flags, or the local and
 		 * remote files didn't match.
 		 */
+		if (rfd != -1) {
+			close(rfd);
+			rfd = -1;
+		}
 
 		if (f == NULL || url->offset > 0) {
 			/*
@@ -1003,6 +1031,8 @@ again:
 		fclose(f);
 	if (of && of != stdout)
 		fclose(of);
+	if (rfd != -1)
+		close(rfd);
 	/* the temporary file is never what the user wants to keep */
 	if (tmplive)
 		unlink(tmppath);

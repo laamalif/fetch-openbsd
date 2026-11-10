@@ -68,6 +68,7 @@
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
+#include <limits.h>
 #include <netdb.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -899,6 +900,32 @@ http_parse_mtime(const char *p, time_t *mtime)
 }
 
 /*
+ * Parse a run of decimal digits into *v.  There must be at least one,
+ * and the value must fit an off_t: numbers that wrap would otherwise
+ * turn a hostile header into an honest-looking one.
+ */
+/* off_t is 64 bits here, so LLONG_MAX is its limit */
+typedef char http_off_t_is_64_bits[sizeof(off_t) == sizeof(long long) ? 1 : -1];
+
+static int
+http_parse_num(const char **pp, off_t *v)
+{
+	const char *p = *pp;
+	off_t n = 0;
+
+	if (!isdigit((unsigned char)*p))
+		return (-1);
+	for (; isdigit((unsigned char)*p); ++p) {
+		if (n > (LLONG_MAX - (*p - '0')) / 10)
+			return (-1);
+		n = n * 10 + (*p - '0');
+	}
+	*pp = p;
+	*v = n;
+	return (0);
+}
+
+/*
  * Parse a content-length header
  */
 static int
@@ -906,9 +933,7 @@ http_parse_length(const char *p, off_t *length)
 {
 	off_t len;
 
-	for (len = 0; *p && isdigit((unsigned char)*p); ++p)
-		len = len * 10 + (*p - '0');
-	if (*p)
+	if (http_parse_num(&p, &len) == -1 || *p != '\0')
 		return (-1);
 	DEBUGF("content length: [%lld]\n", (long long)len);
 	*length = len;
@@ -930,18 +955,16 @@ http_parse_range(const char *p, off_t *offset, off_t *length, off_t *size)
 		first = last = -1;
 		++p;
 	} else {
-		for (first = 0; *p && isdigit((unsigned char)*p); ++p)
-			first = first * 10 + *p - '0';
-		if (*p != '-')
+		if (http_parse_num(&p, &first) == -1 || *p++ != '-' ||
+		    http_parse_num(&p, &last) == -1)
 			return (-1);
-		for (last = 0, ++p; *p && isdigit((unsigned char)*p); ++p)
-			last = last * 10 + *p - '0';
 	}
-	if (first > last || *p != '/')
+	if (first > last || *p++ != '/')
 		return (-1);
-	for (len = 0, ++p; *p && isdigit((unsigned char)*p); ++p)
-		len = len * 10 + *p - '0';
-	if (*p || len < last - first + 1)
+	if (http_parse_num(&p, &len) == -1 || *p != '\0')
+		return (-1);
+	/* the range must lie within the object */
+	if (first != -1 && last >= len)
 		return (-1);
 	if (first == -1) {
 		DEBUGF("content range: [*/%lld]\n", (long long)len);
@@ -1872,10 +1895,17 @@ http_request_body(struct url *URL, const char *op, struct url_stat *us,
 				http_seterr(HTTP_PROTOCOL_ERROR);
 				goto ouch;
 			case hdr_content_length:
-				http_parse_length(p, &clength);
+				if (http_parse_length(p, &clength) == -1) {
+					http_seterr(HTTP_PROTOCOL_ERROR);
+					goto ouch;
+				}
 				break;
 			case hdr_content_range:
-				http_parse_range(p, &offset, &length, &size);
+				if (http_parse_range(p, &offset, &length,
+				    &size) == -1) {
+					http_seterr(HTTP_PROTOCOL_ERROR);
+					goto ouch;
+				}
 				break;
 			case hdr_last_modified:
 				http_parse_mtime(p, &mtime);
