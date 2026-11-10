@@ -62,13 +62,11 @@
 static int	 A_flag;	/*    -A: do not follow 302 redirects */
 static int	 a_flag;	/*    -a: auto retry */
 static off_t	 B_size;	/*    -B: buffer size */
-static int	 b_flag;	/*!   -b: workaround TCP bug */
 static char    *c_dirname;	/*    -c: remote directory */
 static int	 d_flag;	/*    -d: direct connection */
 static int	 F_flag;	/*    -F: restart without checking mtime  */
 static char	*f_filename;	/*    -f: file to fetch */
 static char	*h_hostname;	/*    -h: host to fetch from */
-static int	 i_flag;	/*    -i: specify file for mtime comparison */
 static char	*i_filename;	/*        name of input file */
 static time_t	 i_mtime;	/*        its mtime, read before sandboxing */
 static int	 i_errno;	/*        or why that failed */
@@ -77,7 +75,6 @@ static int	 l_flag;	/*    -l: link rather than copy file: URLs */
 static int	 m_flag;	/* -[Mm]: mirror mode */
 static char	*N_filename;	/*    -N: netrc file name */
 static int	 n_flag;	/*    -n: do not preserve modification time */
-static int	 o_flag;	/*    -o: specify output file */
 static int	 o_directory;	/*        output file is a directory */
 static char	*o_filename;	/*        name of output file */
 static int	 o_stdout;	/*        output file is stdout */
@@ -89,7 +86,6 @@ static int	 S_flag;	/*    -S: a size is required ... */
 static off_t	 S_size;	/*        ... to match this */
 static int	 s_flag;        /*    -s: show size, don't fetch */
 static long	 T_secs;	/*    -T: transfer timeout in seconds */
-static int	 t_flag;	/*!   -t: workaround TCP bug */
 static int	 U_flag;	/*    -U: do not use high ports */
 static int	 v_level = 1;	/*    -v: verbosity level */
 static int	 v_tty;		/*        stdout is a tty */
@@ -535,7 +531,7 @@ fetch(char *URL, const char *path, int *is_http)
 		if (A_flag)
 			strlcat(flags, "A", sizeof(flags));
 		timeout = T_secs ? T_secs : http_timeout;
-		if (i_flag) {
+		if (i_filename != NULL) {
 			if (i_errno != 0) {
 				warnc(i_errno, "%s: stat()", i_filename);
 				goto failure;
@@ -643,7 +639,7 @@ again:
 	/* start the transfer */
 	f = fetchXGet(url, &us, flags);
 	if (f == NULL) {
-		if (i_flag && *is_http && fetchLastErrCode == FETCH_OK &&
+		if (i_filename != NULL && *is_http && fetchLastErrCode == FETCH_OK &&
 		    strcmp(fetchLastErrString, "Not Modified") == 0) {
 			/* HTTP Not Modified Response, return OK. */
 			if (v_level > 0)
@@ -731,7 +727,7 @@ again:
 			if (R_flag) {
 				warnx("%s: local modification time "
 				    "does not match remote", path);
-				goto failure_keep;
+				goto failure;
 			}
 		} else if (url->offset > sb.st_size) {
 			/* gap between what we asked for and what we got */
@@ -938,15 +934,13 @@ again:
 	if (f == NULL)
 		goto failure;
 
-	if (!timedout) {
-		/* check the status of our files */
-		if (ferror(f))
-			warn("%s", shown(URL));
-		if (ferror(of))
-			warn("%s", path);
-		if (ferror(f) || ferror(of))
-			goto failure;
-	}
+	/* check the status of our files */
+	if (ferror(f))
+		warn("%s", shown(URL));
+	if (ferror(of))
+		warn("%s", path);
+	if (ferror(f) || ferror(of))
+		goto failure;
 
 	/* did the transfer complete normally? */
 	if (us.size != -1 && count < us.size) {
@@ -960,17 +954,9 @@ again:
 			tries++;
 			goto again;
 		}
-		goto failure_keep;
+		goto failure;
 	}
 
-	/*
-	 * If the transfer timed out and we didn't know how much to
-	 * expect, assume the worst (i.e. we didn't get all of it)
-	 */
-	if (timedout && us.size == -1) {
-		warnx("%s may be truncated", path);
-		goto failure_keep;
-	}
 
  success:
 	r = 0;
@@ -982,7 +968,7 @@ again:
 	if (of == stdout) {
 		if (fflush(of) == EOF || ferror(of)) {
 			warn("stdout");
-			goto failure_keep;
+			goto failure;
 		}
 	} else if (of != NULL) {
 		werr = fflush(of) == EOF || ferror(of);
@@ -1017,14 +1003,13 @@ again:
 	if (tmplive) {
 		if (rename(tmppath, path) == -1) {
 			warn("%s: rename()", path);
-			goto failure_keep;
+			goto failure;
 		}
 		tmplive = 0;
 	}
 	goto done;
  failure:
 	/* an output file named by the user stays: it may be resumed */
- failure_keep:
 	r = -1;
  done:
 	if (f)
@@ -1104,7 +1089,6 @@ main(int argc, char *argv[])
 			break;
 		case 'b':
 			warnx("warning: the -b option is deprecated");
-			b_flag = 1;
 			break;
 		case 'c':
 			c_dirname = optarg;
@@ -1126,14 +1110,12 @@ main(int argc, char *argv[])
 			h_hostname = optarg;
 			break;
 		case 'i':
-			i_flag = 1;
 			i_filename = optarg;
 			break;
 		case 'l':
 			l_flag = 1;
 			break;
 		case 'o':
-			o_flag = 1;
 			o_filename = optarg;
 			break;
 		case 'M':
@@ -1180,7 +1162,6 @@ main(int argc, char *argv[])
 				errx(1, "timeout (%s) is %s", optarg, errstr);
 			break;
 		case 't':
-			t_flag = 1;
 			warnx("warning: the -t option is deprecated");
 			break;
 		case 'U':
@@ -1280,7 +1261,7 @@ main(int argc, char *argv[])
 	fetchRestartCalls = 0;
 
 	/* output file */
-	if (o_flag) {
+	if (o_filename != NULL) {
 		if (strcmp(o_filename, "-") == 0) {
 			o_stdout = 1;
 		} else if (stat(o_filename, &sb) == -1) {
@@ -1319,15 +1300,15 @@ main(int argc, char *argv[])
 	 * With no -o a transfer is written under its own name in the
 	 * current directory.
 	 */
-	if (i_flag) {
+	if (i_filename != NULL) {
 		/* the reference is looked at once, here: it is not unveiled */
 		if (stat(i_filename, &sb) == -1)
 			i_errno = errno;
 		else
 			i_mtime = sb.st_mtime;
 	}
-	sandbox(argv, argc, o_stdout ? NULL : o_flag ? o_filename : ".",
-	    o_stdout || !o_flag ? 1 : o_directory);
+	sandbox(argv, argc, o_stdout ? NULL : o_filename != NULL ? o_filename : ".",
+	    o_stdout || o_filename == NULL ? 1 : o_directory);
 
 	while (argc) {
 		if ((p = strrchr(*argv, '/')) == NULL)
@@ -1340,7 +1321,7 @@ main(int argc, char *argv[])
 
 		fetchLastErrCode = 0;
 
-		if (o_flag) {
+		if (o_filename != NULL) {
 			if (o_stdout) {
 				e = fetch(*argv, "-", &is_http);
 			} else if (o_directory) {
