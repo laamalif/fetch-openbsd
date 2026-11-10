@@ -143,6 +143,10 @@ http_new_chunk(struct httpio *io)
 	if (fetch_getln(io->conn) == -1)
 		return (-1);
 
+	/* an empty line is a closed connection, not the last chunk */
+	if (io->conn->linelen == 0)
+		return (-1);
+
 	for (p = io->conn->line;
 	     *p != '\0' && !isspace((unsigned char)*p) && *p != ';';
 	     p++) {
@@ -238,14 +242,21 @@ http_fillbuf(struct httpio *io, size_t len)
 		io->error = errno;
 		return (-1);
 	}
+	if (nbytes == 0) {
+		/* the connection closed in the middle of a chunk */
+		io->error = EPROTO;
+		return (-1);
+	}
 	io->bufpos = 0;
 	io->buflen = nbytes;
 	io->chunksize -= nbytes;
 
 	if (io->chunksize == 0) {
 		if (fetch_bufread(io->conn, &ch, 1) != 1 || ch != '\r' ||
-		    fetch_bufread(io->conn, &ch, 1) != 1 || ch != '\n')
+		    fetch_bufread(io->conn, &ch, 1) != 1 || ch != '\n') {
+			io->error = EPROTO;
 			return (-1);
+		}
 	}
 
 	return (io->buflen);
