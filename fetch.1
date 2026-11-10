@@ -41,10 +41,7 @@
 .Op Fl -bind-address= Ns Ar host
 .Op Fl -ca-cert= Ns Ar file
 .Op Fl -ca-path= Ns Ar dir
-.Op Fl -cert= Ns Ar file
-.Op Fl -crl= Ns Ar file
 .Op Fl i Ar file
-.Op Fl -key= Ns Ar file
 .Op Fl N Ar file
 .Op Fl -no-passive
 .Op Fl -no-proxy= Ns Ar list
@@ -65,10 +62,7 @@
 .Op Fl -bind-address= Ns Ar host
 .Op Fl -ca-cert= Ns Ar file
 .Op Fl -ca-path= Ns Ar dir
-.Op Fl -cert= Ns Ar file
-.Op Fl -crl= Ns Ar file
 .Op Fl i Ar file
-.Op Fl -key= Ns Ar file
 .Op Fl N Ar file
 .Op Fl -no-passive
 .Op Fl -no-proxy= Ns Ar list
@@ -138,17 +132,6 @@ OpenSSL's default CA cert and path settings apply.
 The directory
 .Ar dir
 contains trusted CA hashes.
-.It Fl -cert= Ns Ar file
-[SSL]
-.Ar file
-is a PEM encoded client certificate/key which will be used in
-client certificate authentication.
-.It Fl -crl= Ns Ar file
-[SSL]
-Points to certificate revocation list
-.Ar file ,
-which has to be in PEM format and may contain peer certificates that have
-been revoked.
 .It Fl d , -direct
 Use a direct connection even if a proxy is configured.
 .It Fl F , -force-restart
@@ -175,11 +158,6 @@ is newer than
 .Ar file
 on the local host.
 (HTTP only)
-.It Fl -key= Ns Ar file
-[SSL]
-.Ar file
-is a PEM encoded client key that will be used in client certificate
-authentication in case key and client certificate are stored separately.
 .It Fl l , -symlink
 If the target is a file-scheme URL, make a symbolic link to the target
 rather than trying to copy it.
@@ -350,9 +328,6 @@ for a description of additional environment variables, including
 .Ev no_proxy ,
 .Ev SSL_CA_CERT_FILE ,
 .Ev SSL_CA_CERT_PATH ,
-.Ev SSL_CLIENT_CERT_FILE ,
-.Ev SSL_CLIENT_KEY_FILE ,
-.Ev SSL_CRL_FILE ,
 .Ev SSL_ALLOW_SSL3 ,
 .Ev SSL_NO_TLS1 ,
 .Ev SSL_NO_TLS1_1 ,

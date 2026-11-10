@@ -1109,9 +1109,7 @@ fetch_ssl_setup_transport_layer(SSL_CTX *ctx, int verbose)
 static int
 fetch_ssl_setup_peer_verification(SSL_CTX *ctx, int verbose)
 {
-	X509_LOOKUP *crl_lookup;
-	X509_STORE *crl_store;
-	const char *ca_cert_file, *ca_cert_path, *crl_file;
+	const char *ca_cert_file, *ca_cert_path;
 
 	if (getenv("SSL_NO_VERIFY_PEER") == NULL) {
 		ca_cert_file = getenv("SSL_CA_CERT_FILE");
@@ -1135,51 +1133,6 @@ fetch_ssl_setup_peer_verification(SSL_CTX *ctx, int verbose)
 			    ca_cert_path);
 		else
 			SSL_CTX_set_default_verify_paths(ctx);
-		if ((crl_file = getenv("SSL_CRL_FILE")) != NULL) {
-			fetch_verbose("Using CRL file: %s", crl_file);
-			crl_store = SSL_CTX_get_cert_store(ctx);
-			crl_lookup = X509_STORE_add_lookup(crl_store,
-			    X509_LOOKUP_file());
-			if (crl_lookup == NULL ||
-			    !X509_load_crl_file(crl_lookup, crl_file,
-				X509_FILETYPE_PEM)) {
-				fetch_info("Could not load CRL file %s",
-				    crl_file);
-				return (0);
-			}
-			X509_STORE_set_flags(crl_store,
-			    X509_V_FLAG_CRL_CHECK |
-			    X509_V_FLAG_CRL_CHECK_ALL);
-		}
-	}
-	return (1);
-}
-
-/*
- * Configure client certificate based on environment.
- */
-static int
-fetch_ssl_setup_client_certificate(SSL_CTX *ctx, int verbose)
-{
-	const char *client_cert_file, *client_key_file;
-
-	if ((client_cert_file = getenv("SSL_CLIENT_CERT_FILE")) != NULL) {
-		client_key_file = getenv("SSL_CLIENT_KEY_FILE") != NULL ?
-		    getenv("SSL_CLIENT_KEY_FILE") : client_cert_file;
-		fetch_verbose("Using client cert file: %s", client_cert_file);
-		fetch_verbose("Using client key file: %s", client_key_file);
-		if (SSL_CTX_use_certificate_chain_file(ctx,
-			client_cert_file) != 1) {
-			fetch_info("Could not load client certificate %s",
-			    client_cert_file);
-			return (0);
-		}
-		if (SSL_CTX_use_PrivateKey_file(ctx, client_key_file,
-			SSL_FILETYPE_PEM) != 1) {
-			fetch_info("Could not load client key %s",
-			    client_key_file);
-			return (0);
-		}
 	}
 	return (1);
 }
@@ -1232,8 +1185,6 @@ fetch_ssl(conn_t *conn, const struct url *URL, int verbose)
 
 	fetch_ssl_setup_transport_layer(conn->ssl_ctx, verbose);
 	if (!fetch_ssl_setup_peer_verification(conn->ssl_ctx, verbose))
-		return (-1);
-	if (!fetch_ssl_setup_client_certificate(conn->ssl_ctx, verbose))
 		return (-1);
 
 	conn->ssl = SSL_new(conn->ssl_ctx);

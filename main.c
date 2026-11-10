@@ -104,9 +104,6 @@ enum options
 	OPTION_NO_PROXY,
 	OPTION_SSL_CA_CERT_FILE,
 	OPTION_SSL_CA_CERT_PATH,
-	OPTION_SSL_CLIENT_CERT_FILE,
-	OPTION_SSL_CLIENT_KEY_FILE,
-	OPTION_SSL_CRL_FILE,
 	OPTION_SSL_NO_SSL3,
 	OPTION_SSL_NO_TLS1,
 	OPTION_SSL_NO_VERIFY_HOSTNAME,
@@ -155,9 +152,6 @@ static struct option longopts[] =
 	{ "no-proxy", required_argument, NULL, OPTION_NO_PROXY },
 	{ "ca-cert", required_argument, NULL, OPTION_SSL_CA_CERT_FILE },
 	{ "ca-path", required_argument, NULL, OPTION_SSL_CA_CERT_PATH },
-	{ "cert", required_argument, NULL, OPTION_SSL_CLIENT_CERT_FILE },
-	{ "key", required_argument, NULL, OPTION_SSL_CLIENT_KEY_FILE },
-	{ "crl", required_argument, NULL, OPTION_SSL_CRL_FILE },
 	{ "no-sslv3", no_argument, NULL, OPTION_SSL_NO_SSL3 },
 	{ "no-tlsv1", no_argument, NULL, OPTION_SSL_NO_TLS1 },
 	{ "no-verify-hostname", no_argument, NULL, OPTION_SSL_NO_VERIFY_HOSTNAME },
@@ -873,18 +867,16 @@ again:
 static void
 usage(void)
 {
-	fprintf(stderr, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
+	fprintf(stderr, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
 "usage: fetch [-146AadFlMmnPpqRrsUv] [-B bytes] [--bind-address=host]",
-"       [--ca-cert=file] [--ca-path=dir] [--cert=file] [--crl=file]",
-"       [-i file] [--key=file] [-N file] [--no-passive] [--no-proxy=list]",
-"       [--no-sslv3] [--no-tlsv1] [--no-verify-hostname] [--no-verify-peer]",
-"       [-o file] [--referer=URL] [-S bytes] [-T seconds]",
+"       [--ca-cert=file] [--ca-path=dir] [-i file] [-N file] [--no-passive]",
+"       [--no-proxy=list] [--no-sslv3] [--no-tlsv1] [--no-verify-hostname]",
+"       [--no-verify-peer] [-o file] [--referer=URL] [-S bytes] [-T seconds]",
 "       [--user-agent=agent-string] [-w seconds] URL ...",
 "       fetch [-146AadFlMmnPpqRrsUv] [-B bytes] [--bind-address=host]",
-"       [--ca-cert=file] [--ca-path=dir] [--cert=file] [--crl=file]",
-"       [-i file] [--key=file] [-N file] [--no-passive] [--no-proxy=list]",
-"       [--no-sslv3] [--no-tlsv1] [--no-verify-hostname] [--no-verify-peer]",
-"       [-o file] [--referer=URL] [-S bytes] [-T seconds]",
+"       [--ca-cert=file] [--ca-path=dir] [-i file] [-N file] [--no-passive]",
+"       [--no-proxy=list] [--no-sslv3] [--no-tlsv1] [--no-verify-hostname]",
+"       [--no-verify-peer] [-o file] [--referer=URL] [-S bytes] [-T seconds]",
 "       [--user-agent=agent-string] [-w seconds] -h host -f file [-c dir]");
 }
 
@@ -1040,15 +1032,6 @@ main(int argc, char *argv[])
 			break;
 		case OPTION_SSL_CA_CERT_PATH:
 			setenv("SSL_CA_CERT_PATH", optarg, 1);
-			break;
-		case OPTION_SSL_CLIENT_CERT_FILE:
-			setenv("SSL_CLIENT_CERT_FILE", optarg, 1);
-			break;
-		case OPTION_SSL_CLIENT_KEY_FILE:
-			setenv("SSL_CLIENT_KEY_FILE", optarg, 1);
-			break;
-		case OPTION_SSL_CRL_FILE:
-			setenv("SSL_CRL_FILE", optarg, 1);
 			break;
 		case OPTION_SSL_NO_SSL3:
 			setenv("SSL_NO_SSL3", "", 1);
