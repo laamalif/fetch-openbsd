@@ -94,6 +94,8 @@ to merge it by hand.
 
 ## Licence
 
-BSD-3-Clause for the FreeBSD code (`libfetch/*` and `main.c`; `libfetch/ftp.c`
-also carries a Beerware notice), ISC for the new files (`sandbox.c`,
-`sandbox.h`, `compat.h`).  The file headers are authoritative.
+BSD-3-Clause for the FreeBSD code (`libfetch/*`, `main.c` and `fetch.1`),
+ISC for the new files (`sandbox.c`, `sandbox.h`, `compat.h`).  Two older
+notices come along inside `libfetch`: a Beerware notice in `ftp.c` and an
+M.I.T. notice on the base64 code in `http.c`.  `LICENSE` has all the texts;
+the file headers are authoritative.
