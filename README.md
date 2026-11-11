@@ -25,6 +25,10 @@ A static binary:
 
 There is no library, no `fetch(3)`, and no dependency beyond the base system.
 
+`ports/net/fetch/` is an OpenBSD port of the tagged release. It builds with
+`make package` from the 7.9 ports tree (copy it to `/usr/ports/net/fetch`) and
+installs with `pkg_add`.
+
 ## Differences from FreeBSD fetch
 
 * HTTPS uses libtls.  The chain and the host name are always verified unless

@@ -1,0 +1,2 @@
+@bin bin/fetch
+@man man/man1/fetch.1

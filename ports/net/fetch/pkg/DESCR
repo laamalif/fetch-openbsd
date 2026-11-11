@@ -1,0 +1,10 @@
+FreeBSD's fetch(1), ported to OpenBSD.
+
+Retrieves files using HTTP, HTTPS or FTP. Supports HTTP, FTP and SOCKS5
+proxies, resuming interrupted transfers and retrying failed requests.
+
+Downloads are written to a temporary file and moved into place only after
+successful completion.
+
+TLS is provided by libtls. Uses pledge(2) and unveil(2) to restrict access
+to system resources.
