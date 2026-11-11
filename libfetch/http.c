@@ -2055,6 +2055,10 @@ http_request_body(struct url *URL, const char *op, struct url_stat *us,
 		goto ouch;
 	}
 
+	/* Transfer-Encoding overrides Content-Length (RFC 9112 6.3) */
+	if (chunked)
+		clength = -1;
+
 	/* check for inconsistencies */
 	if (clength != -1 && length != -1 && clength != length) {
 		http_seterr(HTTP_PROTOCOL_ERROR);

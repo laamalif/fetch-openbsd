@@ -79,6 +79,38 @@ TestChunkTruncatedAtBoundaries(void)
 }
 
 /*
+ * Transfer-Encoding overrides Content-Length (RFC 9112 6.3): a chunked body
+ * ends at its last chunk, whatever length is also announced and in
+ * whichever order the headers come, and its size is not known up front.
+ */
+void
+TestChunkedOverridesContentLength(void)
+{
+	static const char *const hdr[] = {
+		"Transfer-Encoding: chunked\r\nContent-Length: 3\r\n",
+		"Content-Length: 3\r\nTransfer-Encoding: chunked\r\n",
+		"Transfer-Encoding: chunked\r\nContent-Length: 100\r\n",
+		"Content-Length: 100\r\nTransfer-Encoding: chunked\r\n",
+		"Transfer-Encoding: chunked\r\nContent-Length: 0\r\n",
+	};
+	static const char body[] = "5\r\nhello\r\n6\r\n world\r\n0\r\n\r\n";
+	for (size_t i = 0; i < sizeof(hdr) / sizeof(*hdr); i++) {
+		char *p = fmt("HTTP/1.1 200 OK\r\n%s\r\n%s", hdr[i], body);
+		struct server s = rawserver(p, strlen(p), 0);
+		struct result r = run(ARGS("-q", "-o", "-", url(&s, "/x")), NULL);
+
+		ok(&r);
+		outeq(&r, "hello world", 11);
+		result_free(&r);
+		r = run(ARGS("-q", "-s", url(&s, "/x")), NULL);
+		ok(&r);
+		outeq(&r, "Unknown\n", 8);
+		result_free(&r);
+		free(p);
+	}
+}
+
+/*
  * A body must arrive byte for byte whatever the framing and however fetch
  * is asked to read it: chunk sizes straddle the 4, 16 and 64 KiB read sizes.
  */

@@ -4,6 +4,7 @@ TestChunkSizeValid	test_chunk.c:TestChunkSizeValid	extension, whitespace extensi
 TestChunkMissingFinalCRLF	test_chunk.c:TestChunkMissingFinalCRLF	zero chunk and trailer lacking final blank line; failure
 TestChunkBadTerminator	test_chunk.c:TestChunkBadTerminator	7 malformed terminators after chunk data; no output left
 TestChunkTruncatedAtBoundaries	test_chunk.c:TestChunkTruncatedAtBoundaries	7 connection closes inside chunk framing; no output left
+TestChunkedOverridesContentLength	test_chunk.c:TestChunkedOverridesContentLength	5 header sets: chunked with Content-Length 3, 100 or 0, in both orders; success; exact 11-byte body; fetch -s prints Unknown
 TestBodyIntegrity	test_chunk.c:TestBodyIntegrity	300000-byte body, chunked/chunked+extension/Content-Length, -B default,16K,64K,1M
 TestRedirectLocationIsEscapedAndRedacted	test_diag.c:TestRedirectLocationIsEscapedAndRedacted	
 TestErrorMessageRedactsPassword	test_diag.c:TestErrorMessageRedactsPassword	

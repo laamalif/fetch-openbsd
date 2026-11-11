@@ -6,6 +6,7 @@ void TestChunkSizeValid(void);
 void TestChunkMissingFinalCRLF(void);
 void TestChunkBadTerminator(void);
 void TestChunkTruncatedAtBoundaries(void);
+void TestChunkedOverridesContentLength(void);
 void TestBodyIntegrity(void);
 void TestRedirectLocationIsEscapedAndRedacted(void);
 void TestErrorMessageRedactsPassword(void);
@@ -125,6 +126,7 @@ const struct test tests[] = {
 	{ "TestChunkMissingFinalCRLF", TestChunkMissingFinalCRLF },
 	{ "TestChunkBadTerminator", TestChunkBadTerminator },
 	{ "TestChunkTruncatedAtBoundaries", TestChunkTruncatedAtBoundaries },
+	{ "TestChunkedOverridesContentLength", TestChunkedOverridesContentLength },
 	{ "TestBodyIntegrity", TestBodyIntegrity },
 	{ "TestRedirectLocationIsEscapedAndRedacted", TestRedirectLocationIsEscapedAndRedacted },
 	{ "TestErrorMessageRedactsPassword", TestErrorMessageRedactsPassword },

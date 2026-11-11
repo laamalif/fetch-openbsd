@@ -36,3 +36,6 @@ Changes to code inside functions that remain (sync them by hand):
             http_parse_num() in http.c uses, so a value above LLONG_MAX is a
             protocol error and reads as "size unknown", instead of wrapping
             to a negative or small size.  FreeBSD has the unchecked loop.
+  http.c    http_request_body(): a chunked response ignores Content-Length, as
+            RFC 9112 6.3 says, instead of cutting the decoded body off at it.
+            FreeBSD stops at Content-Length and exits 0 with a short body.
