@@ -40,6 +40,9 @@ TestFTPSizeMalformed	test_ftp_size.c:TestFTPSizeMalformed
 TestFTPSizeOverflowDownload	test_ftp_size.c:TestFTPSizeOverflowDownload	
 TestFTPUnknownSizeFailure	test_ftp.c:TestFTPUnknownSizeFailure	
 TestFTPUnknownSizeSuccess	test_ftp.c:TestFTPUnknownSizeSuccess	
+TestFTPOversizedPWD	test_ftp.c:TestFTPOversizedPWD	
+TestFTPLongPWD	test_ftp.c:TestFTPLongPWD	
+TestFTPEmptyPWD	test_ftp.c:TestFTPEmptyPWD	
 TestGETDefaultFilename	test_http.c:TestGETDefaultFilename	
 TestGETToStdout	test_http.c:TestGETToStdout	
 TestDownloadSizes	test_http.c:TestDownloadSizes	0,1,4095,4096,65537,5242880 bytes; exact binary content
@@ -135,6 +138,9 @@ TestFTPSizeMalformed	TestFTPSizeMalformed	SIZE 12abc, 1x, abc, -1, +1, 1,5, 0x10
 TestFTPSizeOverflowDownload	TestFTPSizeOverflowDownload	SIZE 2^64+1 on a 100-byte file; success; exact 100-byte content (the wrapped size is not believed)
 TestFTPUnknownSizeFailure	TestFTPUnknownSizeFailure	SIZE refused, 400 of 1000 bytes sent, then 451, 426, 550 or a dropped control connection; failure; no output file
 TestFTPUnknownSizeSuccess	TestFTPUnknownSizeSuccess	SIZE refused, whole file, 226; success; exact 1000-byte content
+TestFTPOversizedPWD	TestFTPOversizedPWD	PWD answer of 1023, 1024, 1025, 4096 and 60000 characters; failure without signal; no CDUP and no RETR sent; no output file
+TestFTPLongPWD	TestFTPLongPWD	PWD answer of 1022 characters, the longest that fits, naming the URL directory; success; exact 10-byte content
+TestFTPEmptyPWD	TestFTPEmptyPWD	empty PWD answer; no signal; PWD sent (the file[-1] read itself needs a memory checker)
 TestSOCKS5	TestSOCKS5	success; nonempty tunneled body; unresolved origin.invalid; exact destination port; domain address type 3
 TestSOCKS5Refused/1	TestSOCKS5Refused	failure without signal; SOCKS5 diagnostic; no origin connection
 TestSOCKS5Refused/2	TestSOCKS5Refused	failure without signal; SOCKS5 diagnostic; no origin connection

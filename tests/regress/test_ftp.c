@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +16,7 @@
 static int never_dial, other_peer;
 const char *ftp_size_reply;	/* text after "213 " in answer to SIZE, if set */
 static int ftp_nosize;		/* answer SIZE with 550 */
+static const char *ftp_pwd;	/* path in the answer to PWD, if set */
 static size_t ftp_cut;		/* if not 0, send only this much of the file */
 static const char *ftp_final;	/* answer to the end of the data, if set;
 				   "" drops the control connection instead */
@@ -61,7 +63,7 @@ serve(int fd, const char *name, const unsigned char *data, size_t len,
 			reply(fd, strcmp(arg, "bad") == 0 ?
 			    "530 login incorrect" : "230 logged in");
 		else if (strcasecmp(buf, "PWD") == 0) {
-			s = fmt("257 \"%s\"", cwd);
+			s = fmt("257 \"%s\"", ftp_pwd != NULL ? ftp_pwd : cwd);
 			reply(fd, s);
 			free(s);
 		} else if (strcasecmp(buf, "CWD") == 0) {
@@ -476,4 +478,114 @@ TestFTPUnknownSizeSuccess(void)
 	result_free(&r);
 	free(url);
 	free(data);
+}
+
+/*
+ * Fetch /dir/file from a server whose PWD answer is path, which makes
+ * ftp_cwd() ask for the working directory.  The server logs what it is sent,
+ * in ftp.log, and ends its session when the client hangs up.
+ */
+static struct result
+pwd_answer(const char *path)
+{
+	static const unsigned char data[] = "0123456789";
+	struct ftp f;
+	struct result r;
+	char *url;
+
+	ftp_pwd = path;
+	f = newftp("/dir/file", data, sizeof(data) - 1, 1);
+	url = fmt("ftp://127.0.0.1:%u/dir/file", f.port);
+	r = run(ARGS("-q", "-T", "10", "-o", "out", url), NULL);
+	free(url);
+	reap(f.pid);
+	return r;
+}
+
+static int
+logged(const char *word)
+{
+	char *log;
+	size_t len;
+	int found;
+
+	log = getfile("ftp.log", &len);
+	found = strstr(log, word) != NULL;
+	free(log);
+	return found;
+}
+
+/*
+ * ftp_pwd() copies the server's answer into a PATH_MAX buffer.  An answer
+ * that does not leave room for the terminating NUL is refused, not copied one
+ * byte past the end of the buffer; the transfer fails and nothing is sent
+ * after it, least of all the CDUPs that ftp_cwd() sends while it looks for a
+ * common directory.  1024 is the first length that overran.  1023 is refused
+ * too, as the closing quote takes the last place; 1022 is TestFTPLongPWD.
+ */
+void
+TestFTPOversizedPWD(void)
+{
+	static const size_t n[] = { 1023, 1024, 1025, 4096, 60000 };
+	struct result r;
+	char *path;
+	size_t i;
+
+	for (i = 0; i < sizeof(n) / sizeof(n[0]); i++) {
+		path = xmalloc(n[i] + 1);
+		memset(path, 'a', n[i]);
+		path[n[i]] = '\0';
+		r = pwd_answer(path);
+		bad(&r);
+		CHECK(r.sig == 0);
+		CHECK(!logged("CDUP"));
+		CHECK(!logged("RETR"));
+		nofile("out");
+		result_free(&r);
+		free(path);
+	}
+}
+
+/*
+ * A working directory of 1022 characters, the longest that fits, is still
+ * read.  The URL names the same directory, so ftp_cwd() finds the common
+ * prefix at once and has nothing to change.
+ */
+void
+TestFTPLongPWD(void)
+{
+	static const unsigned char data[] = "0123456789";
+	char dir[1024], *url;
+	struct ftp f;
+	struct result r;
+
+	memset(dir, 'a', sizeof(dir) - 2);
+	dir[0] = '/';
+	dir[sizeof(dir) - 2] = '\0';
+	ftp_pwd = dir;
+	f = newftp("/file", data, sizeof(data) - 1, 1);
+	url = fmt("ftp://127.0.0.1:%u%s/file", f.port, dir);
+	r = run(ARGS("-q", "-T", "10", "-o", "out", url), NULL);
+	ok(&r);
+	reap(f.pid);
+	fileeq("out", data, sizeof(data) - 1);
+	result_free(&r);
+	free(url);
+}
+
+/*
+ * An empty working directory reaches ftp_cwd() with nothing to compare
+ * against.  The common-prefix test must not look at the byte before the
+ * start of the name.  That read is silent in a normal build, so this checks
+ * only that the transfer goes on to a decision without a crash; run the
+ * suite under a memory checker to see the read itself.
+ */
+void
+TestFTPEmptyPWD(void)
+{
+	struct result r = pwd_answer("");
+
+	CHECK(r.sig == 0);
+	CHECK(logged("PWD"));
+	result_free(&r);
 }

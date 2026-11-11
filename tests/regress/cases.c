@@ -42,6 +42,9 @@ void TestFTPSizeMalformed(void);
 void TestFTPSizeOverflowDownload(void);
 void TestFTPUnknownSizeFailure(void);
 void TestFTPUnknownSizeSuccess(void);
+void TestFTPOversizedPWD(void);
+void TestFTPLongPWD(void);
+void TestFTPEmptyPWD(void);
 void TestGETDefaultFilename(void);
 void TestGETToStdout(void);
 void TestDownloadSizes(void);
@@ -164,6 +167,9 @@ const struct test tests[] = {
 	{ "TestFTPSizeOverflowDownload", TestFTPSizeOverflowDownload },
 	{ "TestFTPUnknownSizeFailure", TestFTPUnknownSizeFailure },
 	{ "TestFTPUnknownSizeSuccess", TestFTPUnknownSizeSuccess },
+	{ "TestFTPOversizedPWD", TestFTPOversizedPWD },
+	{ "TestFTPLongPWD", TestFTPLongPWD },
+	{ "TestFTPEmptyPWD", TestFTPEmptyPWD },
 	{ "TestGETDefaultFilename", TestGETDefaultFilename },
 	{ "TestGETToStdout", TestGETToStdout },
 	{ "TestDownloadSizes", TestDownloadSizes },

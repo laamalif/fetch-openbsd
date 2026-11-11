@@ -242,7 +242,7 @@ ftp_pwd(conn_t *conn, char *pwd, size_t pwdlen)
 	src = conn->line + 4;
 	if (src >= end || *src++ != '"')
 		return (FTP_PROTOCOL_ERROR);
-	for (q = 0, dst = pwd; src < end && pwdlen--; ++src) {
+	for (q = 0, dst = pwd; src < end && --pwdlen; ++src) {
 		if (!q && *src == '"')
 			q = 1;
 		else if (q && *src != '"')
@@ -292,7 +292,8 @@ ftp_cwd(conn_t *conn, const char *file)
 		DEBUGF("want: [%.*s|%s]\n", i, file, file + i);
 #endif
 		/* Keep going up a dir until we have a matching prefix. */
-		if (pwd[i] == '\0' && (file[i - 1] == '/' || file[i] == '/'))
+		if (pwd[i] == '\0' &&
+		    (file[i] == '/' || (i > 0 && file[i - 1] == '/')))
 			break;
 		if ((e = ftp_cmd(conn, "CDUP")) != FTP_FILE_ACTION_OK ||
 		    (e = ftp_cmd(conn, "PWD")) != FTP_WORKING_DIRECTORY ||

@@ -44,3 +44,10 @@ Changes to code inside functions that remain (sync them by hand):
             426, 451...) is read by that close, so when the size is unknown a
             server that aborted the transfer is no longer reported as success.
             FreeBSD ignores the status and exits 0 with a partial file.
+  ftp.c     ftp_pwd(): the copy loop stops one byte short of the buffer, so
+            the terminating NUL always has room; the old "pwdlen--" test let a
+            server's PWD answer of PATH_MAX characters or more write the NUL
+            one byte past the end.  Such an answer is now a protocol error.
+  ftp.c     ftp_cwd(): the common-prefix test reads file[i] before file[i - 1],
+            and the latter only when i > 0; with an empty PWD answer the old
+            order read the byte before the start of the name.
