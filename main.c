@@ -54,6 +54,7 @@
 #include "sandbox.h"
 
 #define MINBUFSIZE	16384
+#define DEFBUFSIZE	65536
 #define TIMEOUT		120
 #define MAXSECS		(24 * 60 * 60 * 365)	/* a year is no timeout */
 #define MAXBUFSIZE	(1024 * 1024 * 1024)
@@ -61,7 +62,7 @@
 /* Option flags */
 static int	 A_flag;	/*    -A: do not follow 302 redirects */
 static int	 a_flag;	/*    -a: auto retry */
-static off_t	 B_size;	/*    -B: buffer size */
+static off_t	 B_size = DEFBUFSIZE;	/*    -B: buffer size */
 static char    *c_dirname;	/*    -c: remote directory */
 static int	 d_flag;	/*    -d: direct connection */
 static int	 F_flag;	/*    -F: restart without checking mtime  */

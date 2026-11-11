@@ -109,8 +109,8 @@ error when the requested object does not exist.
 Automatically retry the transfer upon soft failures.
 .It Fl B Ar bytes , Fl -buffer-size= Ns Ar bytes
 Specify the read buffer size in bytes, at most 1 GiB.
-The default is 16,384 bytes.
-Attempts to set a buffer size lower than this will be silently
+The default is 65,536 bytes.
+Attempts to set a buffer size lower than 16,384 bytes will be silently
 ignored.
 The number of reads actually performed is reported at verbosity level
 two or higher (see the
