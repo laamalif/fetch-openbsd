@@ -13,12 +13,9 @@
 #include "harness.h"
 
 static int never_dial, other_peer;
+const char *ftp_size_reply;	/* text after "213 " in answer to SIZE, if set */
 static const char *pasv_host = "127,0,0,1";
 
-struct ftp {
-	unsigned short port;
-	pid_t pid;
-};
 
 static void
 reply(int fd, const char *s)
@@ -85,7 +82,10 @@ serve(int fd, const char *name, const unsigned char *data, size_t len,
 			else if (strcasecmp(buf, "MDTM") == 0)
 				reply(fd, "213 20200102030405");
 			else {
-				s = fmt("213 %zu", len);
+				if (ftp_size_reply != NULL)
+					s = fmt("213 %s", ftp_size_reply);
+				else
+					s = fmt("213 %zu", len);
 				reply(fd, s);
 				free(s);
 			}
@@ -178,7 +178,7 @@ serve(int fd, const char *name, const unsigned char *data, size_t len,
 		close(pasv);
 }
 
-static struct ftp
+struct ftp
 newftp(const char *name, const unsigned char *data, size_t len, int sessions)
 {
 	struct ftp f;

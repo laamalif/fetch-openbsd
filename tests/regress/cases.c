@@ -34,6 +34,11 @@ void TestFTPRestart(void);
 void TestFTPActiveHonoursTimeout(void);
 void TestFTPPassiveIgnoresAdvertisedAddress(void);
 void TestFTPActiveRejectsOtherPeer(void);
+void TestFTPSizeValid(void);
+void TestFTPSizeUnknown(void);
+void TestFTPSizeOverflow(void);
+void TestFTPSizeMalformed(void);
+void TestFTPSizeOverflowDownload(void);
 void TestGETDefaultFilename(void);
 void TestGETToStdout(void);
 void TestDownloadSizes(void);
@@ -148,6 +153,11 @@ const struct test tests[] = {
 	{ "TestFTPActiveHonoursTimeout", TestFTPActiveHonoursTimeout },
 	{ "TestFTPPassiveIgnoresAdvertisedAddress", TestFTPPassiveIgnoresAdvertisedAddress },
 	{ "TestFTPActiveRejectsOtherPeer", TestFTPActiveRejectsOtherPeer },
+	{ "TestFTPSizeValid", TestFTPSizeValid },
+	{ "TestFTPSizeUnknown", TestFTPSizeUnknown },
+	{ "TestFTPSizeOverflow", TestFTPSizeOverflow },
+	{ "TestFTPSizeMalformed", TestFTPSizeMalformed },
+	{ "TestFTPSizeOverflowDownload", TestFTPSizeOverflowDownload },
 	{ "TestGETDefaultFilename", TestGETDefaultFilename },
 	{ "TestGETToStdout", TestGETToStdout },
 	{ "TestDownloadSizes", TestDownloadSizes },

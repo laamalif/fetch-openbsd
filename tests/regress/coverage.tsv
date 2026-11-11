@@ -32,6 +32,11 @@ TestFTPRestart	test_ftp.c:TestFTPRestart
 TestFTPActiveHonoursTimeout	test_ftp.c:TestFTPActiveHonoursTimeout	
 TestFTPPassiveIgnoresAdvertisedAddress	test_ftp.c:TestFTPPassiveIgnoresAdvertisedAddress	
 TestFTPActiveRejectsOtherPeer	test_ftp.c:TestFTPActiveRejectsOtherPeer	
+TestFTPSizeValid	test_ftp_size.c:TestFTPSizeValid	
+TestFTPSizeUnknown	test_ftp_size.c:TestFTPSizeUnknown	
+TestFTPSizeOverflow	test_ftp_size.c:TestFTPSizeOverflow	
+TestFTPSizeMalformed	test_ftp_size.c:TestFTPSizeMalformed	
+TestFTPSizeOverflowDownload	test_ftp_size.c:TestFTPSizeOverflowDownload	
 TestGETDefaultFilename	test_http.c:TestGETDefaultFilename	
 TestGETToStdout	test_http.c:TestGETToStdout	
 TestDownloadSizes	test_http.c:TestDownloadSizes	0,1,4095,4096,65537,5242880 bytes; exact binary content
@@ -120,6 +125,11 @@ TestFTPRestart	TestFTPRestart	initial success; truncate to 20000 bytes and match
 TestFTPActiveHonoursTimeout	TestFTPActiveHonoursTimeout	server accepts active command but never connects; failure without signal with -T 2; elapsed <=8 seconds
 TestFTPPassiveIgnoresAdvertisedAddress	TestFTPPassiveIgnoresAdvertisedAddress	PASV advertises 192.0.2.1; success with -T 5; exact 3000-byte content
 TestFTPActiveRejectsOtherPeer	TestFTPActiveRejectsOtherPeer	skip if 127.0.0.2 unavailable; data source 127.0.0.2; failure without signal; no output file
+TestFTPSizeValid	TestFTPSizeValid	10 SIZE replies: 1, 100, 2^31-1, 2^31, 2^32, 4 TiB, LLONG_MAX, leading zeros, leading blanks, trailing words; fetch -s prints the number
+TestFTPSizeUnknown	TestFTPSizeUnknown	SIZE 0, 000 and an empty reply; fetch -s prints Unknown
+TestFTPSizeOverflow	TestFTPSizeOverflow	10 SIZE replies from LLONG_MAX+1 to 60 digits, including 2^64, 2^64+1, 2^64+100 (wrap to 0, 1, 100); fetch -s prints Unknown, never a wrapped or negative number
+TestFTPSizeMalformed	TestFTPSizeMalformed	SIZE 12abc, 1x, abc, -1, +1, 1,5, 0x10; fetch -s prints Unknown
+TestFTPSizeOverflowDownload	TestFTPSizeOverflowDownload	SIZE 2^64+1 on a 100-byte file; success; exact 100-byte content (the wrapped size is not believed)
 TestSOCKS5	TestSOCKS5	success; nonempty tunneled body; unresolved origin.invalid; exact destination port; domain address type 3
 TestSOCKS5Refused/1	TestSOCKS5Refused	failure without signal; SOCKS5 diagnostic; no origin connection
 TestSOCKS5Refused/2	TestSOCKS5Refused	failure without signal; SOCKS5 diagnostic; no origin connection

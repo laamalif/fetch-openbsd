@@ -64,6 +64,7 @@
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <netdb.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -420,8 +421,12 @@ ftp_stat(conn_t *conn, const char *file, struct url_stat *us)
 	}
 	for (ln = conn->line + 4; *ln && isspace((unsigned char)*ln); ln++)
 		/* nothing */ ;
-	for (us->size = 0; *ln && isdigit((unsigned char)*ln); ln++)
+	/* off_t is 64 bits here, so LLONG_MAX is its limit */
+	for (us->size = 0; *ln && isdigit((unsigned char)*ln); ln++) {
+		if (us->size > (LLONG_MAX - (*ln - '0')) / 10)
+			break;
 		us->size = us->size * 10 + *ln - '0';
+	}
 	if (*ln && !isspace((unsigned char)*ln)) {
 		ftp_seterr(FTP_PROTOCOL_ERROR);
 		us->size = -1;

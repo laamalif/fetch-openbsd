@@ -30,3 +30,9 @@ Kept on purpose: everything inside the functions that remain, such as the
 FTP STOR/APPE path, the request body arguments of http_request_body(), and
 the #ifdef and #if 0 blocks.  Cutting those would make every sync a manual
 port; main.c, sandbox.c and the files the port added carry the local work.
+
+Changes to code inside functions that remain (sync them by hand):
+  ftp.c     ftp_stat(): the SIZE reply is parsed with the overflow check that
+            http_parse_num() in http.c uses, so a value above LLONG_MAX is a
+            protocol error and reads as "size unknown", instead of wrapping
+            to a negative or small size.  FreeBSD has the unchecked loop.

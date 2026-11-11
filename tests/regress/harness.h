@@ -52,6 +52,12 @@ int readexact(int, void *, size_t);
 int writeall(int, const void *, size_t);
 void line(int, char *, size_t);
 void record(const char *, const char *);
+struct ftp {
+	unsigned short port;
+	pid_t pid;
+};
+struct ftp newftp(const char *, const unsigned char *, size_t, int);
+extern const char *ftp_size_reply;
 extern const struct test tests[];
 extern const size_t ntests;
 #endif
