@@ -40,6 +40,8 @@ void TestFTPSizeUnknown(void);
 void TestFTPSizeOverflow(void);
 void TestFTPSizeMalformed(void);
 void TestFTPSizeOverflowDownload(void);
+void TestFTPUnknownSizeFailure(void);
+void TestFTPUnknownSizeSuccess(void);
 void TestGETDefaultFilename(void);
 void TestGETToStdout(void);
 void TestDownloadSizes(void);
@@ -160,6 +162,8 @@ const struct test tests[] = {
 	{ "TestFTPSizeOverflow", TestFTPSizeOverflow },
 	{ "TestFTPSizeMalformed", TestFTPSizeMalformed },
 	{ "TestFTPSizeOverflowDownload", TestFTPSizeOverflowDownload },
+	{ "TestFTPUnknownSizeFailure", TestFTPUnknownSizeFailure },
+	{ "TestFTPUnknownSizeSuccess", TestFTPUnknownSizeSuccess },
 	{ "TestGETDefaultFilename", TestGETDefaultFilename },
 	{ "TestGETToStdout", TestGETToStdout },
 	{ "TestDownloadSizes", TestDownloadSizes },

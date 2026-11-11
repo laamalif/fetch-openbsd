@@ -39,3 +39,8 @@ Changes to code inside functions that remain (sync them by hand):
   http.c    http_request_body(): a chunked response ignores Content-Length, as
             RFC 9112 6.3 says, instead of cutting the decoded body off at it.
             FreeBSD stops at Content-Length and exits 0 with a short body.
+  main.c    fetch(): at the end of the data the stream is closed and a failed
+            close is a failed transfer.  An FTP server's final status (226,
+            426, 451...) is read by that close, so when the size is unknown a
+            server that aborted the transfer is no longer reported as success.
+            FreeBSD ignores the status and exits 0 with a partial file.

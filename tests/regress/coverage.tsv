@@ -38,6 +38,8 @@ TestFTPSizeUnknown	test_ftp_size.c:TestFTPSizeUnknown
 TestFTPSizeOverflow	test_ftp_size.c:TestFTPSizeOverflow	
 TestFTPSizeMalformed	test_ftp_size.c:TestFTPSizeMalformed	
 TestFTPSizeOverflowDownload	test_ftp_size.c:TestFTPSizeOverflowDownload	
+TestFTPUnknownSizeFailure	test_ftp.c:TestFTPUnknownSizeFailure	
+TestFTPUnknownSizeSuccess	test_ftp.c:TestFTPUnknownSizeSuccess	
 TestGETDefaultFilename	test_http.c:TestGETDefaultFilename	
 TestGETToStdout	test_http.c:TestGETToStdout	
 TestDownloadSizes	test_http.c:TestDownloadSizes	0,1,4095,4096,65537,5242880 bytes; exact binary content
@@ -131,6 +133,8 @@ TestFTPSizeUnknown	TestFTPSizeUnknown	SIZE 0, 000 and an empty reply; fetch -s p
 TestFTPSizeOverflow	TestFTPSizeOverflow	10 SIZE replies from LLONG_MAX+1 to 60 digits, including 2^64, 2^64+1, 2^64+100 (wrap to 0, 1, 100); fetch -s prints Unknown, never a wrapped or negative number
 TestFTPSizeMalformed	TestFTPSizeMalformed	SIZE 12abc, 1x, abc, -1, +1, 1,5, 0x10; fetch -s prints Unknown
 TestFTPSizeOverflowDownload	TestFTPSizeOverflowDownload	SIZE 2^64+1 on a 100-byte file; success; exact 100-byte content (the wrapped size is not believed)
+TestFTPUnknownSizeFailure	TestFTPUnknownSizeFailure	SIZE refused, 400 of 1000 bytes sent, then 451, 426, 550 or a dropped control connection; failure; no output file
+TestFTPUnknownSizeSuccess	TestFTPUnknownSizeSuccess	SIZE refused, whole file, 226; success; exact 1000-byte content
 TestSOCKS5	TestSOCKS5	success; nonempty tunneled body; unresolved origin.invalid; exact destination port; domain address type 3
 TestSOCKS5Refused/1	TestSOCKS5Refused	failure without signal; SOCKS5 diagnostic; no origin connection
 TestSOCKS5Refused/2	TestSOCKS5Refused	failure without signal; SOCKS5 diagnostic; no origin connection

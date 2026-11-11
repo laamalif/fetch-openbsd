@@ -14,6 +14,10 @@
 
 static int never_dial, other_peer;
 const char *ftp_size_reply;	/* text after "213 " in answer to SIZE, if set */
+static int ftp_nosize;		/* answer SIZE with 550 */
+static size_t ftp_cut;		/* if not 0, send only this much of the file */
+static const char *ftp_final;	/* answer to the end of the data, if set;
+				   "" drops the control connection instead */
 static const char *pasv_host = "127,0,0,1";
 
 
@@ -81,6 +85,8 @@ serve(int fd, const char *name, const unsigned char *data, size_t len,
 				reply(fd, "550 no such file");
 			else if (strcasecmp(buf, "MDTM") == 0)
 				reply(fd, "213 20200102030405");
+			else if (ftp_nosize)
+				reply(fd, "550 SIZE not available");
 			else {
 				if (ftp_size_reply != NULL)
 					s = fmt("213 %s", ftp_size_reply);
@@ -161,10 +167,17 @@ serve(int fd, const char *name, const unsigned char *data, size_t len,
 					free(file);
 					return;
 				}
+				if (ftp_cut != 0 && ftp_cut < len - rest)
+					len = rest + ftp_cut;
 				CHECK(writeall(dc, data + rest, len - rest) == 0);
 				close(dc);
 				rest = 0;
-				reply(fd, "226 transfer complete");
+				if (ftp_final != NULL && ftp_final[0] == '\0') {
+					free(file);
+					return;
+				}
+				reply(fd, ftp_final != NULL ? ftp_final :
+				    "226 transfer complete");
 			}
 		} else if (strcasecmp(buf, "QUIT") == 0) {
 			reply(fd, "221 bye");
@@ -405,4 +418,62 @@ verbose_ftp_passwords(void)
 	reap(f.pid);
 	result_free(&r);
 	free(url);
+}
+
+/*
+ * A server that cannot give a size gives the client nothing but the end of
+ * the data to go by.  The status that follows it is then the only word on
+ * whether the transfer was whole, and a failure there must not be reported
+ * as success.
+ */
+void
+TestFTPUnknownSizeFailure(void)
+{
+	static const char *const final[] = {
+		"451 Requested action aborted: local error in processing",
+		"426 Connection closed; transfer aborted",
+		"550 read error",
+		"",				/* control connection dropped */
+	};
+	unsigned char *data = pattern(1000);
+	struct ftp f;
+	struct result r;
+	char *url;
+	size_t i;
+
+	ftp_nosize = 1;
+	ftp_cut = 400;
+	for (i = 0; i < sizeof(final) / sizeof(final[0]); i++) {
+		ftp_final = final[i];
+		f = newftp("/f", data, 1000, 1);
+		url = fmt("ftp://127.0.0.1:%u/f", f.port);
+		r = run(ARGS("-q", "-o", "out", url), NULL);
+		bad(&r);
+		reap(f.pid);
+		nofile("out");
+		result_free(&r);
+		free(url);
+	}
+	free(data);
+}
+
+/* The same server, when the transfer does complete, is not disturbed. */
+void
+TestFTPUnknownSizeSuccess(void)
+{
+	unsigned char *data = pattern(1000);
+	struct ftp f;
+	struct result r;
+	char *url;
+
+	ftp_nosize = 1;
+	f = newftp("/f", data, 1000, 1);
+	url = fmt("ftp://127.0.0.1:%u/f", f.port);
+	r = run(ARGS("-q", "-o", "out", url), NULL);
+	ok(&r);
+	reap(f.pid);
+	fileeq("out", data, 1000);
+	result_free(&r);
+	free(url);
+	free(data);
 }

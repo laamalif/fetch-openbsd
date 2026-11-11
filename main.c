@@ -958,6 +958,20 @@ again:
 		goto failure;
 	}
 
+	/*
+	 * The data ended.  An FTP server's verdict on the transfer (226, or
+	 * 426, 451...) is read when the stream is closed, and when the size
+	 * was not known nothing else says whether the copy is whole.  Only
+	 * at the end of the data: before it the server is still sending.
+	 */
+	if (feof(f)) {
+		r = fclose(f);
+		f = NULL;
+		if (r == EOF) {
+			warnx("%s: transfer failed", shown(URL));
+			goto failure;
+		}
+	}
 
  success:
 	r = 0;
