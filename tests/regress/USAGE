@@ -1,0 +1,40 @@
+OpenBSD fetch C regressions
+
+From the repository root:
+    make
+    make regress
+
+From this directory:
+    make regress
+    ./fetch-regress -l
+    ./fetch-regress Chunk SOCKS5
+    FETCH_BIN=/absolute/path/to/fetch ./fetch-regress Retry
+
+Arguments select test names by substring (OR). No match is an error.
+The default executable is ../../fetch; FETCH_BIN overrides it. Build and
+run from this directory. make regress regenerates short-lived local TLS
+certificates with base openssl. Direct runner invocation needs those
+certificates from an earlier make regress or sh certificates.sh.
+
+Requirements: OpenBSD base cc, make, libc, libtls and openssl. ktrace/kdump
+are used for the unveil test. No Go, Python, external web service, or
+third-party test framework is required. The .invalid DNS failure test
+uses the host resolver; all protocol servers listen on loopback.
+
+Each named case runs in its own process group and private directory.
+Fixtures bind ephemeral listeners before clients run. Fetch inherits a
+clean environment and no fixture descriptors. Binary output is compared
+by length and bytes. Fetch has a 15-second harness watchdog; fixtures have
+25 seconds and each case 90 seconds. These ceilings are distinct from
+fetch's -T timeout assertions. Interrupted/failing cases kill fixtures;
+completed fixtures with abnormal status fail the case. A signal is never
+accepted as an ordinary fetch failure.
+
+PASS, FAIL and SKIP are printed separately. Root skips checks that require
+permission denial. Special-bit setup may be denied for an ordinary user.
+Unavailable IPv6 or tracing support is reported as a skip where applicable.
+Run under the intended deployment user; a pass is not a claim of security.
+
+coverage.tsv lists each case with the assertions and parameter sets it covers.
+Existing tests/tls.sh and tests/sandbox.sh remain separate; inspect their
+setup and external-service requirements before running them.

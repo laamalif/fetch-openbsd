@@ -1,0 +1,149 @@
+Case	C function	Covers
+TestChunkSizeMalformed	test_chunk.c:TestChunkSizeMalformed	12 sizes: extension-only, whitespace, junk, sign, 0x, trailing junk, 2^64, larger, 2^32, 2^63, SIZE_MAX, 40 hex digits; failure/no file
+TestChunkSizeValid	test_chunk.c:TestChunkSizeValid	extension, whitespace extension, uppercase, leading zeros, zero extension, trailer; exact body
+TestChunkMissingFinalCRLF	test_chunk.c:TestChunkMissingFinalCRLF	zero chunk and trailer lacking final blank line; failure
+TestChunkBadTerminator	test_chunk.c:TestChunkBadTerminator	7 malformed terminators after chunk data; no output left
+TestChunkTruncatedAtBoundaries	test_chunk.c:TestChunkTruncatedAtBoundaries	7 connection closes inside chunk framing; no output left
+TestBodyIntegrity	test_chunk.c:TestBodyIntegrity	300000-byte body, chunked/chunked+extension/Content-Length, -B default,16K,64K,1M
+TestRedirectLocationIsEscapedAndRedacted	test_diag.c:TestRedirectLocationIsEscapedAndRedacted	
+TestErrorMessageRedactsPassword	test_diag.c:TestErrorMessageRedactsPassword	
+TestBodyIsNotEscaped	test_diag.c:TestBodyIsNotEscaped	
+TestNumericOptionRanges	test_diag.c:TestNumericOptionRanges	12 invalid CLI arguments plus FTP_TIMEOUT/HTTP_TIMEOUT x {-5,overflow,x}; status and diagnostics
+TestRequireSizeZero	test_diag.c:TestRequireSizeZero	absent -S, -S0 empty, -S0 nonempty
+TestHugeTimeoutStillWorks	test_diag.c:TestHugeTimeoutStillWorks	
+TestRedirectHostCannotReachAuthPrompt	test_diag.c:TestRedirectHostCannotReachAuthPrompt	5 hostile/invalid hosts; failure; no authentication prompt or ESC/BEL
+TestTruncatedBody	test_fault.c:TestTruncatedBody	
+TestCloseWithoutResponse	test_fault.c:TestCloseWithoutResponse	
+TestCloseAfterHeaders	test_fault.c:TestCloseAfterHeaders	
+TestTruncatedChunked	test_fault.c:TestTruncatedChunked	
+TestInvalidStatusLine	test_fault.c:TestInvalidStatusLine	garbage, nonnumeric HTTP status, SSH greeting; failure
+TestMalformedHeaders	test_fault.c:TestMalformedHeaders	Content-Length banana; no abnormal termination
+TestHTTP10NoLength	test_fault.c:TestHTTP10NoLength	
+TestStallAfterHeadersTimeout	test_fault.c:TestStallAfterHeadersTimeout	
+TestConnectionRefused	test_fault.c:TestConnectionRefused	
+TestDNSFailure	test_fault.c:TestDNSFailure	
+TestIPv6Literal	test_fault.c:TestIPv6Literal	
+TestForceIPv4	test_fault.c:TestForceIPv4	
+TestFTPPassive	test_ftp.c:TestFTPPassive	
+TestFTPActive	test_ftp.c:TestFTPActive	
+TestFTPAuth	test_ftp.c:TestFTPAuth	
+TestFTPMissingFile	test_ftp.c:TestFTPMissingFile	
+TestFTPRestart	test_ftp.c:TestFTPRestart	
+TestFTPActiveHonoursTimeout	test_ftp.c:TestFTPActiveHonoursTimeout	
+TestFTPPassiveIgnoresAdvertisedAddress	test_ftp.c:TestFTPPassiveIgnoresAdvertisedAddress	
+TestFTPActiveRejectsOtherPeer	test_ftp.c:TestFTPActiveRejectsOtherPeer	
+TestGETDefaultFilename	test_http.c:TestGETDefaultFilename	
+TestGETToStdout	test_http.c:TestGETToStdout	
+TestDownloadSizes	test_http.c:TestDownloadSizes	0,1,4095,4096,65537,5242880 bytes; exact binary content
+TestOverwriteExisting	test_http.c:TestOverwriteExisting	
+TestOutputIntoDirectory	test_http.c:TestOutputIntoDirectory	
+TestMtimeFromLastModified	test_http.c:TestMtimeFromLastModified	default remote mtime and -n suppression
+TestHTTPErrors	test_http.c:TestHTTPErrors	400,403,404,500,503; failure and no output; 404 diagnostic
+TestRedirects	test_http.c:TestRedirects	three-hop chain and 301,302,303,307,308; success and body
+TestRedirectLoopGivesUp	test_http.c:TestRedirectLoopGivesUp	
+TestNoRedirectFlag	test_http.c:TestNoRedirectFlag	
+TestChunked	test_http.c:TestChunked	
+TestRequestHeaders	test_http.c:TestRequestHeaders	
+TestFragmentNotSent	test_http.c:TestFragmentNotSent	
+TestBasicAuth	test_http.c:TestBasicAuth	missing credentials, URL credentials, HTTP_AUTH, incorrect password
+TestSizeOnly	test_http.c:TestSizeOnly	
+TestExpectedSize	test_http.c:TestExpectedSize	100 correct and 99 incorrect; size mismatch diagnostic
+TestIfModifiedSince	test_http.c:TestIfModifiedSince	newer reference: header and no output; older: exact body
+TestRestart	test_http.c:TestRestart	
+TestMirrorSkipsUpToDate	test_http.c:TestMirrorSkipsUpToDate	
+TestMultipleURLs	test_http.c:TestMultipleURLs	
+TestTimeout	test_http.c:TestTimeout	
+TestHTTPProxy	test_misc.c:TestHTTPProxy	
+TestNoProxy	test_misc.c:TestNoProxy	environment and CLI bypass
+TestFileScheme	test_misc.c:TestFileScheme	exact binary body, missing file failure, -l symlink target
+TestUnwritableOutput	test_misc.c:TestUnwritableOutput	
+TestCLIErrors	test_misc.c:TestCLIErrors	9 invalid argument sets; exit1; no-URL usage
+TestUnsupportedScheme	test_misc.c:TestUnsupportedScheme	
+TestNoProxyDomainBoundaries	test_misc.c:TestNoProxyDomainBoundaries	9 case/label/wildcard/list variants; direct versus proxy result
+TestDeprecatedFlagsWarn	test_misc.c:TestDeprecatedFlagsWarn	-b and -t; warning and nonempty successful output
+TestStalledBodyUnknownLengthFails	test_misc.c:TestStalledBodyUnknownLengthFails	
+TestReplaceDropsSpecialBits	test_output.c:TestReplaceDropsSpecialBits	empty and nonempty bodies; ordinary0640 retained, special bits removed
+TestReplacementPrivateWhileDownloading	test_output.c:TestReplacementPrivateWhileDownloading	
+TestNewFileDoesNotFollowDanglingSymlink	test_output.c:TestNewFileDoesNotFollowDanglingSymlink	
+TestResumeNewFileNoFollow	test_output.c:TestResumeNewFileNoFollow	-r and -R dangling link; failure/no target creation
+TestNewFileModeAndNoDebris	test_output.c:TestNewFileModeAndNoDebris	
+TestReplaceSymlinkLeavesTarget	test_output.c:TestReplaceSymlinkLeavesTarget	
+TestTruncatedReplacementLeavesNoDebris	test_output.c:TestTruncatedReplacementLeavesNoDebris	
+TestResumeWellFormedRange	test_range.c:TestResumeWellFormedRange	
+TestResumeMalformedRangeNeverCorrupts	test_range.c:TestResumeMalformedRangeNeverCorrupts	9 malformed Content-Range values; no misplaced tail; success requires exact full body; wrapped offsets rejected
+TestResumeThroughSymlink	test_range.c:TestResumeThroughSymlink	
+TestPlainDownloadReplacesSymlink	test_range.c:TestPlainDownloadReplacesSymlink	
+TestResumeCompleteReadOnlyFile	test_range.c:TestResumeCompleteReadOnlyFile	
+TestResumePartialReadOnlyFileFails	test_range.c:TestResumePartialReadOnlyFileFails	
+TestResumeTargetIsTheMeasuredFile	test_range.c:TestResumeTargetIsTheMeasuredFile	
+TestRedirectCredentialsStayInOrigin	test_regress.c:TestRedirectCredentialsStayInOrigin	cross-port and TLS downgrade do not leak auth; explicit Location credentials authenticate
+TestRedirectCredentialsSameOrigin	test_regress.c:TestRedirectCredentialsSameOrigin	relative and absolute same-origin redirects retain credentials; exact body
+TestPassivePortrangeDefault	test_regress.c:TestPassivePortrangeDefault	long option and -U accepted
+TestWriteErrorIsReported	test_regress.c:TestWriteErrorIsReported	default and -n x new and existing output; failure, old content and cleanup
+TestWriteErrorToStdout	test_regress.c:TestWriteErrorToStdout	
+TestAutoRetryProducesExactContent	test_retry.c:TestAutoRetryProducesExactContent	range honored/ignored x new/existing; success exact body; failure preserves old output; no debris
+TestAutoRetryToStdout	test_retry.c:TestAutoRetryToStdout	range honored/ignored; success cannot duplicate body
+TestAutoRetryUsesRange	test_retry.c:TestAutoRetryUsesRange	exactly two requests; second Range bytes=3-
+TestAutoRetryToDevice	test_retry.c:TestAutoRetryToDevice	honored range succeeds; ignored range fails with cannot retry
+TestRedirectToFileNotFollowed	test_sandbox.c:TestRedirectToFileNotFollowed	file://, file://localhost, file:; failure, no output or secret leakage
+TestStdoutWritesNoFiles	test_sandbox.c:TestStdoutWritesNoFiles	
+TestOutputElsewhere	test_sandbox.c:TestOutputElsewhere	
+TestIfModifiedSinceFile	test_sandbox.c:TestIfModifiedSinceFile	
+TestResumeMtimeMismatch	test_sandbox.c:TestResumeMtimeMismatch	empty and 1000-byte local; full restart and no debris
+TestResumePreciousMismatch	test_sandbox.c:TestResumePreciousMismatch	
+TestReplaceKeepsModeAndLeavesNoTemp	test_sandbox.c:TestReplaceKeepsModeAndLeavesNoTemp	
+TestDevNullUnveilsOnlyTheDevice	test_sandbox.c:TestDevNullUnveilsOnlyTheDevice	
+TestSOCKS5	test_socks.c:TestSOCKS5	
+TestSOCKS5Refused	test_socks.c:TestSOCKS5Refused	
+TestSOCKS5BadVersion	test_socks.c:TestSOCKS5BadVersion	
+TestSOCKS5FragmentedReplies	test_socks.c:TestSOCKS5FragmentedReplies	
+TestSOCKS5CoalescedReplyKeepsPayload	test_socks.c:TestSOCKS5CoalescedReplyKeepsPayload	
+TestSOCKS5ReplyAddressTypes	test_socks.c:TestSOCKS5ReplyAddressTypes	
+TestSOCKS5MalformedReply	test_socks.c:TestSOCKS5MalformedReply	
+TestSOCKS5TrickleHonoursTimeout	test_socks.c:TestSOCKS5TrickleHonoursTimeout	
+TestTLSUntrustedRejected	test_tls.c:TestTLSUntrustedRejected	unrelated CA and default trust reject fixture certificate
+TestTLSNoVerifyPeer	test_tls.c:TestTLSNoVerifyPeer	
+TestTLSTrustedCA	test_tls.c:TestTLSTrustedCA	--ca-cert and SSL_CA_CERT_FILE
+TestTLSBinaryIntegrity	test_tls.c:TestTLSBinaryIntegrity	
+TestTLSHostnameMismatch	test_tls.c:TestTLSHostnameMismatch	trusted certificate rejects localhost; explicit hostname bypass succeeds
+TestTLSPlainServer	test_tls.c:TestTLSPlainServer	complete ClientHello record receives plaintext HTTP error; ordinary failure
+TestVerboseNeverShowsCredentials	test_verbose.c:TestVerboseNeverShowsCredentials	
+TestVerboseStillAuthenticates	test_verbose.c:TestVerboseStillAuthenticates	
+TestVerboseKeepsOtherHeaders	test_verbose.c:TestVerboseKeepsOtherHeaders	
+TestVerboseNeverShowsNetrcOrFTPPassword	test_verbose.c:TestVerboseNeverShowsNetrcOrFTPPassword	
+TestFTPPassive	TestFTPPassive	success; 200000-byte exact content; USER anonymous
+TestFTPActive	TestFTPActive	success; 5000-byte exact content; PORT or EPRT command
+TestFTPAuth/valid	TestFTPAuth	success; USER bob and PASS pw commands
+TestFTPAuth/bad-password	TestFTPAuth	failure without signal
+TestFTPMissingFile	TestFTPMissingFile	failure without signal; no output file
+TestFTPRestart	TestFTPRestart	initial success; truncate to 20000 bytes and matching mtime; resume success; REST 20000; exact 50000-byte content
+TestFTPActiveHonoursTimeout	TestFTPActiveHonoursTimeout	server accepts active command but never connects; failure without signal with -T 2; elapsed <=8 seconds
+TestFTPPassiveIgnoresAdvertisedAddress	TestFTPPassiveIgnoresAdvertisedAddress	PASV advertises 192.0.2.1; success with -T 5; exact 3000-byte content
+TestFTPActiveRejectsOtherPeer	TestFTPActiveRejectsOtherPeer	skip if 127.0.0.2 unavailable; data source 127.0.0.2; failure without signal; no output file
+TestSOCKS5	TestSOCKS5	success; nonempty tunneled body; unresolved origin.invalid; exact destination port; domain address type 3
+TestSOCKS5Refused/1	TestSOCKS5Refused	failure without signal; SOCKS5 diagnostic; no origin connection
+TestSOCKS5Refused/2	TestSOCKS5Refused	failure without signal; SOCKS5 diagnostic; no origin connection
+TestSOCKS5Refused/3	TestSOCKS5Refused	failure without signal; SOCKS5 diagnostic; no origin connection
+TestSOCKS5Refused/4	TestSOCKS5Refused	failure without signal; SOCKS5 diagnostic; no origin connection
+TestSOCKS5Refused/5	TestSOCKS5Refused	failure without signal; SOCKS5 diagnostic; no origin connection
+TestSOCKS5Refused/6	TestSOCKS5Refused	failure without signal; SOCKS5 diagnostic; no origin connection
+TestSOCKS5Refused/7	TestSOCKS5Refused	failure without signal; SOCKS5 diagnostic; no origin connection
+TestSOCKS5Refused/8	TestSOCKS5Refused	failure without signal; SOCKS5 diagnostic; no origin connection
+TestSOCKS5BadVersion	TestSOCKS5BadVersion	failure without signal; SOCKS5 diagnostic
+TestSOCKS5FragmentedReplies	TestSOCKS5FragmentedReplies	greeting and reply split into bytes with 20ms gaps; success; nonempty body
+TestSOCKS5CoalescedReplyKeepsPayload	TestSOCKS5CoalescedReplyKeepsPayload	reply and HTTP payload in one write; success; exact hello body
+TestSOCKS5ReplyAddressTypes/ipv4/whole,split	TestSOCKS5ReplyAddressTypes	both whole and 1ms-fragmented IPv4 bound address; success; exact hello body
+TestSOCKS5ReplyAddressTypes/ipv6/whole,split	TestSOCKS5ReplyAddressTypes	both whole and 1ms-fragmented IPv6 bound address; success; exact hello body
+TestSOCKS5ReplyAddressTypes/domain/whole,split	TestSOCKS5ReplyAddressTypes	both whole and 1ms-fragmented example.org bound address; success; exact hello body
+TestSOCKS5ReplyAddressTypes/empty/whole,split	TestSOCKS5ReplyAddressTypes	both whole and 1ms-fragmented zero-length domain bound address; success; exact hello body
+TestSOCKS5MalformedReply/atyp 9	TestSOCKS5MalformedReply	unknown address type; failure without signal; SOCKS5 diagnostic
+TestSOCKS5MalformedReply/truncated	TestSOCKS5MalformedReply	truncated IPv6 address; failure without signal; SOCKS5 diagnostic
+TestSOCKS5TrickleHonoursTimeout	TestSOCKS5TrickleHonoursTimeout	400ms per-byte gaps; failure without signal with -T 1; elapsed <=3 seconds
+TestVerboseNeverShowsCredentials/-v/url,HTTP_AUTH	TestVerboseNeverShowsCredentials	both credential sources authenticate; exact authed body; neither password nor base64 credentials on stderr
+TestVerboseNeverShowsCredentials/-vv/url,HTTP_AUTH	TestVerboseNeverShowsCredentials	both credential sources authenticate; exact authed body; neither password nor base64 credentials on stderr
+TestVerboseNeverShowsCredentials/-vvv/url,HTTP_AUTH	TestVerboseNeverShowsCredentials	both credential sources authenticate; exact authed body; neither password nor base64 credentials on stderr; Authorization: <hidden> visible
+TestVerboseStillAuthenticates	TestVerboseStillAuthenticates	success; exactly one Authorization header bearing Basic base64 alice:s3cret reaches server
+TestVerboseKeepsOtherHeaders	TestVerboseKeepsOtherHeaders	success; request line, custom user agent, Host header visible on stderr
+TestVerboseNeverShowsNetrcOrFTPPassword/netrc	TestVerboseNeverShowsNetrcOrFTPPassword	success using mode0600 NETRC file; no s3cret on stderr
+TestVerboseNeverShowsNetrcOrFTPPassword/FTP URL	TestVerboseNeverShowsNetrcOrFTPPassword	success; no ftppw on stderr; PASS ftppw reaches FTP server
+TestVerboseNeverShowsNetrcOrFTPPassword/FTP_PASSWORD	TestVerboseNeverShowsNetrcOrFTPPassword	success using FTP_LOGIN and FTP_PASSWORD; no envpw on stderr

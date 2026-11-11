@@ -64,14 +64,17 @@ other variables listed under ENVIRONMENT in fetch(1).
 
 ## Tests
 
-    cd tests/blackbox && go test ./...
+    make regress
     sh tests/tls.sh
     sh tests/sandbox.sh
 
-`tests/blackbox` is a Go suite that runs the built binary against local HTTP,
-HTTPS, FTP, SOCKS5 and fault-injecting servers.  It needs no network; see its
-README.  Some tests are skipped where the system cannot provide what they
-need (for example a second loopback address).
+`make regress` builds a C suite in `tests/regress` and runs the built binary
+against local HTTP, HTTPS, FTP, SOCKS5 and fault-injecting servers.  It needs
+only the base system (cc, libtls, openssl) and no network; see
+`tests/regress/USAGE`.  `./fetch-regress -l` lists the cases and
+`./fetch-regress Chunk SOCKS5` runs those whose names match.  Some cases skip
+where the system cannot provide what they need (a second loopback address,
+root privileges, a resolver that answers).
 
 `tests/tls.sh` and `tests/sandbox.sh` run against real hosts, so they need
 the Internet, and `go-httpbin` in `PATH`.  `sandbox.sh` also needs process
@@ -87,9 +90,7 @@ functions that were removed because nothing here calls them (upload, list and
 the URL convenience wrappers): skip upstream hunks that touch those, and
 check any new caller of one before bringing it back.  `libfetch/common.c`
 differs most from upstream (libtls, deadlines, SOCKS5, redaction), so expect
-to merge it by hand.  `docs/plans/` has the design notes
-written when the port was made.  They describe the port as it started and
-are not kept up to date.
+to merge it by hand.
 
 ## Licence
 

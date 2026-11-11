@@ -33,4 +33,9 @@ httperr.h: http.errors
 	@echo "    { -1, FETCH_UNKNOWN, \"Unknown HTTP error\" }" >> ${.TARGET}
 	@echo "};" >> ${.TARGET}
 
+regress: ${PROG}
+	FETCH_BIN=${.OBJDIR}/${PROG} ${MAKE} -C ${.CURDIR}/tests/regress regress
+
+.PHONY: regress
+
 .include <bsd.prog.mk>
