@@ -1079,6 +1079,8 @@ int
 fetch_ssl(conn_t *conn, const struct url *URL, int verbose)
 {
 	const char *s;
+	char name[MAXHOSTNAMELEN + 1];
+	size_t n;
 
 	if (tls_cfg == NULL) {
 		fetch_info("%s", tls_cfg_err[0] != '\0' ? tls_cfg_err :
@@ -1089,8 +1091,15 @@ fetch_ssl(conn_t *conn, const struct url *URL, int verbose)
 		fetch_info("TLS context creation failed");
 		return (-1);
 	}
+	/* the URL parser keeps the brackets of an IPv6 literal */
+	n = strlen(URL->host);
+	if (n > 2 && URL->host[0] == '[' && URL->host[n - 1] == ']') {
+		memcpy(name, URL->host + 1, n - 2);
+		name[n - 2] = '\0';
+	} else
+		strlcpy(name, URL->host, sizeof(name));
 	if (tls_configure(conn->tls, tls_cfg) == -1 ||
-	    tls_connect_socket(conn->tls, conn->sd, URL->host) == -1) {
+	    tls_connect_socket(conn->tls, conn->sd, name) == -1) {
 		fetch_info("%s", tls_error(conn->tls));
 		return (-1);
 	}

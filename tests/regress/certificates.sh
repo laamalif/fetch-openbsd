@@ -13,7 +13,7 @@ CN = fetch regression
 [ext]
 basicConstraints = critical,CA:TRUE
 keyUsage = critical,digitalSignature,keyCertSign
-subjectAltName = IP:127.0.0.1,DNS:example.com
+subjectAltName = IP:127.0.0.1,IP:::1,DNS:example.com
 CONF
 for name in server other; do
     openssl req -new -x509 -newkey rsa:2048 -nodes -days 2 \

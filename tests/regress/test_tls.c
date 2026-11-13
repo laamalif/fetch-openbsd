@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include "server.h"
 static char *
@@ -54,6 +55,25 @@ TestTLSBinaryIntegrity(void)
 	unsigned char *p = pattern(3000000);
 	fileeq("out", p, 3000000);
 	free(p);
+}
+
+void
+TestTLSIPv6Literal(void)
+{
+	unsigned short port;
+	int fd = listener(AF_INET6, &port);
+	if (fd < 0)
+		skip("no IPv6 loopback");
+	close(fd);
+	struct server s = httpserver(AF_INET6, 1);
+	struct result r = run(ARGS("-q", "-o", "-", ca(), url(&s,
+	    "/hello.txt")), NULL);
+	if (strstr(r.err, "Address family"))
+		skip("resolver AI_ADDRCONFIG refuses IPv6");
+	ok(&r);
+	r = run(ARGS("-q", "-o", "out", fmt("--ca-cert=%s/certs/other.pem",
+	    suitedir), url(&s, "/hello.txt")), NULL);
+	bad(&r);
 }
 
 void

@@ -119,6 +119,7 @@ void TestTLSNoVerifyPeer(void);
 void TestTLSTrustedCA(void);
 void TestTLSBinaryIntegrity(void);
 void TestTLSHostnameMismatch(void);
+void TestTLSIPv6Literal(void);
 void TestTLSPlainServer(void);
 void TestVerboseNeverShowsCredentials(void);
 void TestVerboseStillAuthenticates(void);
@@ -244,6 +245,7 @@ const struct test tests[] = {
 	{ "TestTLSTrustedCA", TestTLSTrustedCA },
 	{ "TestTLSBinaryIntegrity", TestTLSBinaryIntegrity },
 	{ "TestTLSHostnameMismatch", TestTLSHostnameMismatch },
+	{ "TestTLSIPv6Literal", TestTLSIPv6Literal },
 	{ "TestTLSPlainServer", TestTLSPlainServer },
 	{ "TestVerboseNeverShowsCredentials", TestVerboseNeverShowsCredentials },
 	{ "TestVerboseStillAuthenticates", TestVerboseStillAuthenticates },

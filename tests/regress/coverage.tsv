@@ -117,6 +117,7 @@ TestTLSNoVerifyPeer	test_tls.c:TestTLSNoVerifyPeer
 TestTLSTrustedCA	test_tls.c:TestTLSTrustedCA	--ca-cert and SSL_CA_CERT_FILE
 TestTLSBinaryIntegrity	test_tls.c:TestTLSBinaryIntegrity	
 TestTLSHostnameMismatch	test_tls.c:TestTLSHostnameMismatch	trusted certificate rejects localhost; explicit hostname bypass succeeds
+TestTLSIPv6Literal	test_tls.c:TestTLSIPv6Literal	trusted certificate with IP:::1 accepted for https://[::1]; unrelated CA rejected
 TestTLSPlainServer	test_tls.c:TestTLSPlainServer	complete ClientHello record receives plaintext HTTP error; ordinary failure
 TestVerboseNeverShowsCredentials	test_verbose.c:TestVerboseNeverShowsCredentials	
 TestVerboseStillAuthenticates	test_verbose.c:TestVerboseStillAuthenticates	
