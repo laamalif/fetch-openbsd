@@ -1,8 +1,8 @@
 COMMENT =	retrieve files by URL (HTTP, HTTPS, FTP), from FreeBSD
 
-DIST_TUPLE =	github laamalif fetch-openbsd v0.1.0 .
+DIST_TUPLE =	github laamalif fetch-openbsd v0.1.1 .
 
-PKGNAME =	fetch-0.1.0
+PKGNAME =	fetch-0.1.1
 
 CATEGORIES =	net
 
