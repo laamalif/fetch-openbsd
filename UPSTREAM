@@ -1,7 +1,7 @@
 repo:   https://github.com/freebsd/freebsd-src
 branch: stable/15
-commit: 6df22096ddb27edb169cfb6758d1dab130f9f683
-date:   2026-11-09T20:32:52-08:00
+commit: 1c44c3822d3ea8f6e270e305887e50eebe6d88f3
+date:   2026-11-17T17:47:59+00:00
 paths:  lib/libfetch usr.bin/fetch
 
 Path mapping (local <- upstream):
@@ -31,6 +31,11 @@ FTP STOR/APPE path, the request body arguments of http_request_body(), and
 the #ifdef and #if 0 blocks.  Cutting those would make every sync a manual
 port; main.c, sandbox.c and the files the port added carry the local work.
 
+Taken from FreeBSD main, not yet in stable/15 (MFC pending):
+  ftp.c     ftp_pwd() and ftp_cwd(), 243ac45 (D61502, "Fix buffer overruns in
+            FTP code", reported by us).  Same text as main.  Drop this note
+            when a later import of stable/15 contains it.
+
 Changes to code inside functions that remain (sync them by hand):
   ftp.c     ftp_stat(): the SIZE reply is parsed with the overflow check that
             http_parse_num() in http.c uses, so a value above LLONG_MAX is a
@@ -44,17 +49,17 @@ Changes to code inside functions that remain (sync them by hand):
             426, 451...) is read by that close, so when the size is unknown a
             server that aborted the transfer is no longer reported as success.
             FreeBSD ignores the status and exits 0 with a partial file.
-  ftp.c     ftp_pwd(): the copy loop stops one byte short of the buffer, so
-            the terminating NUL always has room; the old "pwdlen--" test let a
-            server's PWD answer of PATH_MAX characters or more write the NUL
-            one byte past the end.  Such an answer is now a protocol error.
-  ftp.c     ftp_cwd(): the common-prefix test reads file[i] before file[i - 1],
-            and the latter only when i > 0; with an empty PWD answer the old
-            order read the byte before the start of the name.
   common.c  fetch_read_by(): the "len -= rlen; if (len == 0) break;" after a
             successful read is gone; the next statement breaks anyway.
   http.c    hdr_error and its two "case hdr_error:" branches are gone;
             http_next_header() never returned it.  hdr_syserror is now -1.
+  common.c  Timeouts use the monotonic clock as in fbb0b7e, through the same
+            mstime_mono(), and fetch_connect_sd(), fetch_accept_sd(),
+            fetch_tls_handshake(), fetch_read_by() and fetch_read_exact(),
+            which are ours, use it too.  The deadline is computed in
+            fetch_deadline() with the product in an unsigned long, and the
+            wait handed to poll() is clamped to INT_MAX, as the old
+            fetch_deltams() did for struct timeval.
   common.c  fetch_ssl(): the server name passed to libtls has the brackets of
             an IPv6 literal removed.  The URL parser keeps them in the host,
             and libtls rejected "[::1]" as a server name, so https://[::1]/

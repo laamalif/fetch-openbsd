@@ -304,14 +304,39 @@ fetch_redact(const char *url)
 }
 
 /*
+ * Time for timeouts: milliseconds since an arbitrary epoch, from the
+ * monotonic clock, so that a change of the wall clock cannot stretch or
+ * cut a timeout short.
+ */
+typedef unsigned long mstime_t;
+static mstime_t
+mstime_mono(void)
+{
+	struct timespec ts;
+
+	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+	return ((mstime_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+}
+
+/*
+ * The deadline fetchTimeout seconds from now.  The multiplication is done
+ * in mstime_t: with an int, a large -T would overflow.
+ */
+static mstime_t
+fetch_deadline(void)
+{
+	return (mstime_mono() + (mstime_t)fetchTimeout * 1000);
+}
+
+/*
  * Milliseconds to wait for what is left on the clock, as poll() takes them
  */
 static int
-fetch_deltams(const struct timeval *delta)
+fetch_deltams(mstime_t left)
 {
-	if (delta->tv_sec >= INT_MAX / 1000 - 1)
+	if (left > INT_MAX)
 		return (INT_MAX);
-	return (delta->tv_sec * 1000 + delta->tv_usec / 1000);
+	return ((int)left);
 }
 #define fetch_verbose(...)						\
 	do { if (verbose) fetch_info(__VA_ARGS__); } while (0)
@@ -697,16 +722,14 @@ static int	 fetch_unmap(const struct sockaddr *, struct in_addr *);
 int
 fetch_connect_sd(int sd, const struct sockaddr *sa, socklen_t salen)
 {
-	struct timeval now, timeout, delta;
 	struct pollfd pfd;
 	socklen_t optlen;
+	mstime_t now, deadline;
 	int deltams, optval, r;
 
 	(void)fcntl(sd, F_SETFL, fcntl(sd, F_GETFL) | O_NONBLOCK);
-	if (fetchTimeout > 0) {
-		gettimeofday(&timeout, NULL);
-		timeout.tv_sec += fetchTimeout;
-	}
+	if (fetchTimeout > 0)
+		deadline = fetch_deadline();
 	if (connect(sd, sa, salen) == 0)
 		return (0);
 	if (errno != EINPROGRESS)
@@ -717,13 +740,11 @@ fetch_connect_sd(int sd, const struct sockaddr *sa, socklen_t salen)
 	for (;;) {
 		deltams = INFTIM;
 		if (fetchTimeout > 0) {
-			gettimeofday(&now, NULL);
-			if (!timercmp(&timeout, &now, >)) {
+			if ((now = mstime_mono()) > deadline) {
 				errno = ETIMEDOUT;
 				return (-1);
 			}
-			timersub(&timeout, &now, &delta);
-			deltams = fetch_deltams(&delta);
+			deltams = fetch_deltams(deadline - now);
 		}
 		if ((r = poll(&pfd, 1, deltams)) > 0)
 			break;
@@ -750,28 +771,24 @@ int
 fetch_accept_sd(int ls, const struct sockaddr *expect)
 {
 	struct sockaddr_storage ss;
-	struct timeval now, timeout, delta;
 	struct pollfd pfd;
 	socklen_t l;
+	mstime_t now, deadline;
 	int d, deltams, r;
 
 	(void)fcntl(ls, F_SETFL, fcntl(ls, F_GETFL) | O_NONBLOCK);
-	if (fetchTimeout > 0) {
-		gettimeofday(&timeout, NULL);
-		timeout.tv_sec += fetchTimeout;
-	}
+	if (fetchTimeout > 0)
+		deadline = fetch_deadline();
 	pfd.fd = ls;
 	pfd.events = POLLIN;
 	for (;;) {
 		deltams = INFTIM;
 		if (fetchTimeout > 0) {
-			gettimeofday(&now, NULL);
-			if (!timercmp(&timeout, &now, >)) {
+			if ((now = mstime_mono()) > deadline) {
 				errno = ETIMEDOUT;
 				return (-1);
 			}
-			timersub(&timeout, &now, &delta);
-			deltams = fetch_deltams(&delta);
+			deltams = fetch_deltams(deadline - now);
 		}
 		if ((r = poll(&pfd, 1, deltams)) == -1) {
 			if (errno != EINTR || !fetchRestartCalls)
@@ -1026,14 +1043,12 @@ fail:
 static int
 fetch_tls_handshake(conn_t *conn)
 {
-	struct timeval now, timeout, delta;
 	struct pollfd pfd;
+	mstime_t now, deadline;
 	int deltams, ret;
 
-	if (fetchTimeout > 0) {
-		gettimeofday(&timeout, NULL);
-		timeout.tv_sec += fetchTimeout;
-	}
+	if (fetchTimeout > 0)
+		deadline = fetch_deadline();
 	deltams = INFTIM;
 	pfd.fd = conn->sd;
 	for (;;) {
@@ -1050,14 +1065,12 @@ fetch_tls_handshake(conn_t *conn)
 		}
 		/* check what's left of our timeout */
 		if (fetchTimeout > 0) {
-			gettimeofday(&now, NULL);
-			if (!timercmp(&timeout, &now, >)) {
+			if ((now = mstime_mono()) > deadline) {
 				errno = ETIMEDOUT;
 				fetch_syserr();
 				return (-1);
 			}
-			timersub(&timeout, &now, &delta);
-			deltams = fetch_deltams(&delta);
+			deltams = fetch_deltams(deadline - now);
 		}
 		ret = poll(&pfd, 1, deltams);
 		if (ret == 0) {
@@ -1158,19 +1171,18 @@ fetch_tls_write(struct tls *tls, const void *buf, size_t len, short *events)
  * Read from a connection w/ timeout
  */
 static ssize_t
-fetch_read_by(conn_t *conn, void *buf, size_t len, const struct timeval *by)
+fetch_read_by(conn_t *conn, void *buf, size_t len, const mstime_t *by)
 {
-	struct timeval now, timeout, delta;
 	struct pollfd pfd;
 	ssize_t rlen, total;
+	mstime_t now, deadline;
 	int deltams;
 
 	if (by != NULL)
-		timeout = *by;
+		deadline = *by;
 	else if (fetchTimeout > 0) {
-		gettimeofday(&timeout, NULL);
-		timeout.tv_sec += fetchTimeout;
-		by = &timeout;
+		deadline = fetch_deadline();
+		by = &deadline;
 	}
 
 	deltams = INFTIM;
@@ -1220,14 +1232,12 @@ fetch_read_by(conn_t *conn, void *buf, size_t len, const struct timeval *by)
 		}
 		/* check what's left of our timeout */
 		if (by != NULL) {
-			gettimeofday(&now, NULL);
-			if (!timercmp(&timeout, &now, >)) {
+			if ((now = mstime_mono()) > deadline) {
 				errno = ETIMEDOUT;
 				fetch_syserr();
 				return (-1);
 			}
-			timersub(&timeout, &now, &delta);
-			deltams = fetch_deltams(&delta);
+			deltams = fetch_deltams(deadline - now);
 		}
 		/* wait for the socket to become readable */
 		if (poll(&pfd, 1, deltams) < 0) {
@@ -1260,14 +1270,14 @@ fetch_read(conn_t *conn, void *buf, size_t len)
 int
 fetch_read_exact(conn_t *conn, void *buf, size_t len)
 {
-	struct timeval deadline, *by;
+	mstime_t deadline;
+	const mstime_t *by;
 	unsigned char *p;
 	ssize_t r;
 
 	by = NULL;
 	if (fetchTimeout > 0) {
-		gettimeofday(&deadline, NULL);
-		deadline.tv_sec += fetchTimeout;
+		deadline = fetch_deadline();
 		by = &deadline;
 	}
 	p = buf;
@@ -1442,15 +1452,13 @@ fetch_write(conn_t *conn, const void *buf, size_t len)
 ssize_t
 fetch_writev(conn_t *conn, struct iovec *iov, int iovcnt)
 {
-	struct timeval now, timeout, delta;
 	struct pollfd pfd;
 	ssize_t wlen, total;
+	mstime_t now, deadline;
 	int deltams;
 
-	if (fetchTimeout > 0) {
-		gettimeofday(&timeout, NULL);
-		timeout.tv_sec += fetchTimeout;
-	}
+	if (fetchTimeout > 0)
+		deadline = fetch_deadline();
 
 	deltams = INFTIM;
 	pfd.fd = conn->sd;
@@ -1504,14 +1512,12 @@ fetch_writev(conn_t *conn, struct iovec *iov, int iovcnt)
 		}
 		/* check what's left of our timeout */
 		if (fetchTimeout > 0) {
-			gettimeofday(&now, NULL);
-			if (!timercmp(&timeout, &now, >)) {
+			if ((now = mstime_mono()) > deadline) {
 				errno = ETIMEDOUT;
 				fetch_syserr();
 				return (-1);
 			}
-			timersub(&timeout, &now, &delta);
-			deltams = fetch_deltams(&delta);
+			deltams = fetch_deltams(deadline - now);
 		}
 		/* wait for the socket to become writeable */
 		if (poll(&pfd, 1, deltams) < 0) {

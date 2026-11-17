@@ -520,13 +520,13 @@ logged(const char *word)
  * that does not leave room for the terminating NUL is refused, not copied one
  * byte past the end of the buffer; the transfer fails and nothing is sent
  * after it, least of all the CDUPs that ftp_cwd() sends while it looks for a
- * common directory.  1024 is the first length that overran.  1023 is refused
- * too, as the closing quote takes the last place; 1022 is TestFTPLongPWD.
+ * common directory.  1024 is the first length that overran.  1023 is the
+ * longest that fits, with its NUL; that is TestFTPLongPWD.
  */
 void
 TestFTPOversizedPWD(void)
 {
-	static const size_t n[] = { 1023, 1024, 1025, 4096, 60000 };
+	static const size_t n[] = { 1024, 1025, 4096, 60000 };
 	struct result r;
 	char *path;
 	size_t i;
@@ -547,7 +547,7 @@ TestFTPOversizedPWD(void)
 }
 
 /*
- * A working directory of 1022 characters, the longest that fits, is still
+ * A working directory of 1023 characters, the longest that fits, is still
  * read.  The URL names the same directory, so ftp_cwd() finds the common
  * prefix at once and has nothing to change.
  */
@@ -555,7 +555,7 @@ void
 TestFTPLongPWD(void)
 {
 	static const unsigned char data[] = "0123456789";
-	char dir[1024], *url;
+	char dir[1025], *url;
 	struct ftp f;
 	struct result r;
 
