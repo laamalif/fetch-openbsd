@@ -426,7 +426,7 @@ ftp_stat(conn_t *conn, const char *file, struct url_stat *us)
 	for (us->size = 0; *ln && isdigit((unsigned char)*ln); ln++) {
 		if (us->size > (LLONG_MAX - (*ln - '0')) / 10)
 			break;
-		us->size = us->size * 10 + *ln - '0';
+		us->size = us->size * 10 + (*ln - '0');
 	}
 	if (*ln && !isspace((unsigned char)*ln)) {
 		ftp_seterr(FTP_PROTOCOL_ERROR);
