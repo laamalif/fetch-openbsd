@@ -374,8 +374,7 @@ http_funopen(conn_t *conn, int chunked)
 
 /* Header types */
 typedef enum {
-	hdr_syserror = -2,
-	hdr_error = -1,
+	hdr_syserror = -1,
 	hdr_end = 0,
 	hdr_unknown = 1,
 	hdr_content_length,
@@ -1488,9 +1487,6 @@ retry:
 			case hdr_syserror:
 				fetch_syserr();
 				goto ouch;
-			case hdr_error:
-				http_seterr(HTTP_PROTOCOL_ERROR);
-				goto ouch;
 			default:
 				/* ignore */ ;
 			}
@@ -1890,9 +1886,6 @@ http_request_body(struct url *URL, const char *op, struct url_stat *us,
 			switch ((h = http_next_header(conn, &headerbuf, &p))) {
 			case hdr_syserror:
 				fetch_syserr();
-				goto ouch;
-			case hdr_error:
-				http_seterr(HTTP_PROTOCOL_ERROR);
 				goto ouch;
 			case hdr_content_length:
 				if (http_parse_length(p, &clength) == -1) {

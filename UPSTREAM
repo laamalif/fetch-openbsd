@@ -51,6 +51,10 @@ Changes to code inside functions that remain (sync them by hand):
   ftp.c     ftp_cwd(): the common-prefix test reads file[i] before file[i - 1],
             and the latter only when i > 0; with an empty PWD answer the old
             order read the byte before the start of the name.
+  common.c  fetch_read_by(): the "len -= rlen; if (len == 0) break;" after a
+            successful read is gone; the next statement breaks anyway.
+  http.c    hdr_error and its two "case hdr_error:" branches are gone;
+            http_next_header() never returned it.  hdr_syserror is now -1.
   common.c  fetch_ssl(): the server name passed to libtls has the brackets of
             an IPv6 literal removed.  The URL parser keeps them in the host,
             and libtls rejected "[::1]" as a server name, so https://[::1]/

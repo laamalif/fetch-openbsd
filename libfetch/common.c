@@ -1206,9 +1206,6 @@ fetch_read_by(conn_t *conn, void *buf, size_t len, const struct timeval *by)
 		if (rlen > 0) {
 			/* something was read */
 			total += rlen;
-			len -= rlen;
-			if (len == 0)
-				break;
 			/* a partial read is success */
 			break;
 		} else if (rlen == 0) {
