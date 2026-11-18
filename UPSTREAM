@@ -193,6 +193,8 @@ around the sandbox and the temporary file, so sync it by hand):
             owner and mode of the file it replaces, never setuid, setgid or
             sticky.  A symlink at the name is replaced.  A device or FIFO is
             opened in place.  With -r or -R a new file keeps its name.
+            The temporary name is cut to fit NAME_MAX (the tail of a long
+            name is kept), so a name up to NAME_MAX still works.
             Writes and the close are checked before the rename.
   -r        the file is opened once (a symlink is followed), and its size is
             taken from that descriptor, replacing the stat()/re-open/compare

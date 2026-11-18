@@ -142,3 +142,25 @@ TestTruncatedReplacementLeavesNoDebris(void)
 	fileeq("out", "old\n", 4);
 	CHECK(entries(".") == 1);
 }
+
+void
+TestLongOutputName(void)
+{
+	struct server s = httpserver(AF_INET, 0);
+	const size_t lens[] = {241, 242, 255};	/* NAME_MAX is 255 */
+	char name[256];
+	for (int i = 0; i < 3; i++) {
+		for (int replace = 0; replace < 2; replace++) {
+			memset(name, 'a', lens[i]);
+			name[lens[i]] = '\0';
+			if (replace)
+				putfile(name, "old\n", 4, 0644);
+			struct result r = run(ARGS("-q", "-o", name, url(&s,
+			    "/hello.txt")), NULL);
+			ok(&r);
+			fileeq(name, HELLO, sizeof(HELLO) - 1);
+			CHECK(entries(".") == 1);
+			CHECK(unlink(name) == 0);
+		}
+	}
+}

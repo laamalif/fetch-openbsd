@@ -80,6 +80,7 @@ void TestReplacementPrivateWhileDownloading(void);
 void TestNewFileDoesNotFollowDanglingSymlink(void);
 void TestResumeNewFileNoFollow(void);
 void TestNewFileModeAndNoDebris(void);
+void TestLongOutputName(void);
 void TestReplaceSymlinkLeavesTarget(void);
 void TestTruncatedReplacementLeavesNoDebris(void);
 void TestResumeWellFormedRange(void);
@@ -206,6 +207,7 @@ const struct test tests[] = {
 	{ "TestNewFileDoesNotFollowDanglingSymlink", TestNewFileDoesNotFollowDanglingSymlink },
 	{ "TestResumeNewFileNoFollow", TestResumeNewFileNoFollow },
 	{ "TestNewFileModeAndNoDebris", TestNewFileModeAndNoDebris },
+	{ "TestLongOutputName", TestLongOutputName },
 	{ "TestReplaceSymlinkLeavesTarget", TestReplaceSymlinkLeavesTarget },
 	{ "TestTruncatedReplacementLeavesNoDebris", TestTruncatedReplacementLeavesNoDebris },
 	{ "TestResumeWellFormedRange", TestResumeWellFormedRange },

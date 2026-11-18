@@ -447,7 +447,7 @@ fetch(char *URL, const char *path, int *is_http)
 	size_t size, readcnt, wr;
 	off_t count, size_prev;
 	char flags[8];
-	const char *slash;
+	const char *slash, *keep;
 	char *tmppath;
 	mode_t omode;
 	uid_t ouid;
@@ -824,15 +824,23 @@ again:
 				slash = path;
 			else
 				++slash;
+			/*
+			 * ".fetch.XXXXXX." takes 14 bytes of NAME_MAX; keep
+			 * the tail of a longer name, so a name that fits
+			 * still can be written.  The temporary is renamed.
+			 */
+			keep = slash;
+			if (strlen(keep) > NAME_MAX - 14)
+				keep += strlen(keep) - (NAME_MAX - 14);
 			free(tmppath);
 			tmppath = NULL;
 			if (asprintf(&tmppath, "%.*s.fetch.XXXXXX.%s",
-			    (int)(slash - path), path, slash) == -1) {
+			    (int)(slash - path), path, keep) == -1) {
 				tmppath = NULL;
 				warn("asprintf");
 				goto failure;
 			}
-			if ((fd = mkstemps(tmppath, strlen(slash) + 1)) == -1) {
+			if ((fd = mkstemps(tmppath, strlen(keep) + 1)) == -1) {
 				warn("%s: mkstemps()", path);
 				goto failure;
 			}

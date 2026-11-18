@@ -78,6 +78,7 @@ TestReplacementPrivateWhileDownloading	test_output.c:TestReplacementPrivateWhile
 TestNewFileDoesNotFollowDanglingSymlink	test_output.c:TestNewFileDoesNotFollowDanglingSymlink	
 TestResumeNewFileNoFollow	test_output.c:TestResumeNewFileNoFollow	-r and -R dangling link; failure/no target creation
 TestNewFileModeAndNoDebris	test_output.c:TestNewFileModeAndNoDebris	
+TestLongOutputName	test_output.c:TestLongOutputName	241, 242 and 255 byte names, new and replaced file; success, exact body, no debris
 TestReplaceSymlinkLeavesTarget	test_output.c:TestReplaceSymlinkLeavesTarget	
 TestTruncatedReplacementLeavesNoDebris	test_output.c:TestTruncatedReplacementLeavesNoDebris	
 TestResumeWellFormedRange	test_range.c:TestResumeWellFormedRange	
