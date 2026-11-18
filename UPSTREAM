@@ -74,8 +74,12 @@ later import has the fix):
             15.1 it crashes in strtol(NULL): exit 139.  Here it returns 'U'.
   common.c  fetch_socks5_init(): the port is written as two bytes in network
             order.  FreeBSD does htons() and then stores the low byte first,
-            which is right only on a little-endian host.  (Fix drafted for FreeBSD,
-            not yet sent.)
+            which is right only on a little-endian host (70af989).  (Fix
+            drafted for FreeBSD, not yet sent.)
+  common.c  fetch_socks5_getenv(): without a port, "host" is copied with
+            strdup().  FreeBSD calls strndup(s, ext - s) with ext NULL, a
+            subtraction from a null pointer.  (Fix drafted for FreeBSD, not
+            yet sent.)
   common.c  fetch_socks5_init(): the replies are read exactly, with
             fetch_read_exact(): VER and METHOD (2 bytes), then the 4-byte
             header, then BND.ADDR as long as ATYP says (a domain name has a

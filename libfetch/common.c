@@ -686,6 +686,8 @@ fetch_socks5_getenv(char **host, int *port)
 			socks5_seterr(SOCKS5_ERR_BAD_PROXY_FORMAT);
 			return (0);
 		}
+	} else if (ext == NULL) {
+		*host = strdup(socks5env);
 	} else {
 		*host = strndup(socks5env, ext - socks5env);
 	}
