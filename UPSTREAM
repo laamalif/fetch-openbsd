@@ -66,3 +66,152 @@ Changes to code inside functions that remain (sync them by hand):
             never connected.  (libtls only; FreeBSD's OpenSSL code has the
             same bracketed host in fetch_ssl_verify_hname() and never
             verifies an IP6 SAN.)
+
+Fixed here, still wrong in FreeBSD (candidates to report; drop the note if a
+later import has the fix):
+  main.c    the long option --passive-portrange-default returns 'T' (the -T
+            timeout, which takes an argument) instead of 'U'.  On FreeBSD
+            15.1 it crashes in strtol(NULL): exit 139.  Here it returns 'U'.
+  common.c  fetch_socks5_init(): the port is written as two bytes in network
+            order.  FreeBSD does htons() and then stores the low byte first,
+            which is right only on a little-endian host.  (Fix drafted for FreeBSD,
+            not yet sent.)
+  common.c  fetch_socks5_init(): the replies are read exactly, with
+            fetch_read_exact(): VER and METHOD (2 bytes), then the 4-byte
+            header, then BND.ADDR as long as ATYP says (a domain name has a
+            length byte) and BND.PORT.  RSV must be zero and an unknown ATYP
+            is refused.  FreeBSD reads BUFF_SIZE bytes in one fetch_read(),
+            which can swallow the start of the application protocol or stop
+            short of the reply, and does not check RSV.
+
+Changes to code inside functions that remain, continued:
+  common.c  fetch_connect(): the connect and the wait for it moved into
+            fetch_connect_sd() (ours), which also asks SO_ERROR for the
+            outcome instead of reporting ECONNREFUSED for any POLLOUT that
+            was not exactly POLLOUT.  The FTP passive data connection uses it
+            too, so -T covers it.
+  common.c  fetch_resolve(): strchrnul() is hb + strcspn(hb, ":").
+  common.c  fetch_reopen(): SO_NOSIGPIPE is not set, since
+            OpenBSD has none; main.c ignores SIGPIPE, so a closed peer gives
+            EPIPE.
+  common.c  fetch_no_proxy_match(): an entry matches the host and the hosts
+            below it ("example.com" matches www.example.com, not
+            notexample.com); a leading "." or "*." asks for subdomains only.
+            FreeBSD matches by suffix, so "example.com" matches
+            notexample.com.
+  common.c  fetch_read_word(), netrc: the lookup of the path is in
+            fetch_netrc_path(), which caches the answer; main.c calls it
+            before pledge(2), when getpwuid() no longer works.
+  common.c  fetch_info() and fetch_debug() (new; common.h DEBUGF() calls it
+            in place of fprintf()): the text goes through fetch_emit(),
+            which makes control characters visible with stravis(), because
+            it can come from a server or a certificate.
+  common.c  fetch_putln(): the debug line is passed through
+            fetch_loggable(), which hides PASS, Authorization and
+            Proxy-Authorization.
+  fetch.c   url debug output: the password is shown as <hidden>.
+  ftp.c     ftp_authenticate(): the debug line no longer prints FTP_PASSWORD.
+  ftp.c     ftp_transfer(), passive mode: only the port of the PASV or EPSV
+            reply is used.  The data connection goes to the host of the
+            control connection, so a server cannot point us at another host
+            (FTP bounce in reverse).  The memcpy() of the address is gone.
+  ftp.c     ftp_transfer(), active mode: the connection is accepted with
+            fetch_accept_sd(), from the control connection's peer only, and
+            within -T.  FreeBSD calls accept() with no limit.
+  ftp.c     ftp_get_proxy(), http.c http_get_proxy(): strcpy() into
+            purl->scheme is strlcpy().  http.c http_digest_auth(): sprintf()
+            is snprintf().
+  http.c    http_new_chunk() returns -1, 0 or 1.  The size is parsed with an
+            overflow check and at least one digit, only blanks or an
+            extension may follow, an empty line is a closed connection and
+            not the last chunk, and the last chunk needs its trailers and
+            the empty line.  http_fillbuf() reports EPROTO for a connection
+            closed inside a chunk, and for a missing CRLF after the data.
+            FreeBSD shifts into a 64-bit size with no check, takes any
+            garbage as a size and treats a truncated chunked body as
+            complete.  (The report is PR 2544; it is only the missing-final-
+            blank-line part.)
+  http.c    http_parse_num() (ours) parses Content-Length, Content-Range and
+            the sizes in them with an overflow check; http_parse_length() and
+            http_parse_range() use it, a range must lie within the object,
+            and http_request_body() treats a failure as a protocol error.
+            FreeBSD wraps, and ignores the return value.
+  http.c    http_request_body(): an error line from the server is shown
+            through fetch_redact() when -v is given.
+  http.c    http_request_body(): the If-Modified-Since time is built with
+            gmtime_r() and strftime(), and the answer is checked; the
+            locale_t helper and strptime_l()/strftime_l() are gone since
+            OpenBSD has no xlocale.  http_parse_mtime() zeroes struct tm
+            first.
+  http.c    the debug lines that printed the Digest HA1 and the Basic
+            password are gone.
+  http.c    the MD5 macros for OpenSSL are gone; <md5.h> is always used.
+
+Replaced: OpenSSL by libtls (common.c, common.h, http.c, fetch.h).
+  Gone:     every fetch_ssl_* function (verification of the chain, the host
+            name, the SAN matching, the IP address handling, the read and
+            write wrappers), the ssl, ssl_ctx and ssl_cert members of
+            conn_t, and the WITH_SSL conditionals.
+  Added:    fetch_tls_init() builds one tls_config before pledge(2) and
+            unveil(2): TLS 1.2 and 1.3, the CA file read at once,
+            SSL_NO_VERIFY_PEER and SSL_NO_VERIFY_HOSTNAME, and a failure is
+            kept and reported only when https is used.  fetch_ssl(),
+            fetch_tls_handshake(), fetch_tls_read() and fetch_tls_write()
+            map TLS_WANT_POLLIN and TLS_WANT_POLLOUT to poll().
+  Dropped:  SSL_CLIENT_CERT_FILE, SSL_CLIENT_KEY_FILE, SSL_CRL_FILE,
+            SSL_NO_TLS1 and SSL_NO_TLS1_1 (libtls cannot use them), and so
+            the options --cert, --key, --crl, --no-sslv3 and --no-tlsv1 and
+            their lines in the usage text and the manual.  SSL_NO_TLS1_2
+            and SSL_NO_TLS1_3 stay.
+
+Added to lib/libfetch, with no FreeBSD counterpart:
+  common.c  fetch_deadline(), fetch_deltams(), fetch_read_by(),
+            fetch_read_exact(), fetch_connect_sd(), fetch_accept_sd(),
+            fetch_same_host(), fetch_unmap(), fetch_emit(),
+            fetch_loggable(), fetch_redact(), fetch_netrc_path(),
+            fetch_tls_init() and the libtls functions above.
+  common.h  <sys/socket.h> and "compat.h" included; <tls.h> in place of
+            OpenSSL; struct tls *tls in conn_t; the new declarations.
+  fetch.h   fetch_redact(), fetch_tls_init(), fetch_netrc_path().
+
+Changes in main.c (from usr.bin/fetch/fetch.c; the program is rewritten
+around the sandbox and the temporary file, so sync it by hand):
+  sandbox   sandbox() is called after the TLS and netrc setup, with pledge(2)
+            and unveil(2); see sandbox.c.  -i reads the mtime of its file
+            before that, since the file is not unveiled.
+  numbers   strtonum() with limits for -B, -S, -T, -w, FTP_TIMEOUT and
+            HTTP_TIMEOUT; -B defaults to 64 KiB (FreeBSD 16 KiB); -S has an
+            S_flag, so -S 0 means a size of 0.
+  options   the SSL options above and b_flag, t_flag, o_flag, i_flag are
+            gone; -t only warns.
+  output    a transfer is written to a temporary file in the same directory
+            (mkstemps, fdopen) and renamed when it is complete, with the
+            owner and mode of the file it replaces, never setuid, setgid or
+            sticky.  A symlink at the name is replaced.  A device or FIFO is
+            opened in place.  With -r or -R a new file keeps its name.
+            Writes and the close are checked before the rename.
+  -r        the file is opened once (a symlink is followed), and its size is
+            taken from that descriptor, replacing the stat()/re-open/compare
+            of dev, ino and size.  A read-only file that is complete is not
+            an error.
+  -a        a retry continues in the open output and asks for the rest;
+            if the server starts over, a regular file is truncated, and
+            anything else is refused.
+  end       at the end of the data the stream is closed and a failure is a
+            failed transfer (see above); "may be truncated" and failure_keep
+            are gone with the timedout special case.
+  text      URLs and server text are printed through shown(), which hides a
+            URL password and makes control characters visible.
+  misc      SIGPIPE is ignored; siginfo and sigint are sig_atomic_t;
+            strcat()/strcpy() are strlcat()/strlcpy(); asprintf() is checked;
+            the usage text lists the options that exist.
+
+Other files that are ours: sandbox.c, sandbox.h, compat.h (__DECONST,
+__printflike, IPPORT_MAX), Makefile (BSD make, libtls, ftperr.h and
+httperr.h from the .errors files), tests/regress/, ports/net/fetch/, README.md
+and this file.
+
+fetch.1 is edited to match: the removed options and variables, the 64 KiB
+buffer, the new behaviour of -r, -a, -T, -U, NO_PROXY and the data
+connection, ENVIRONMENT as a list, CAVEATS in place of NOTES, and a SECURITY
+CONSIDERATIONS section.
